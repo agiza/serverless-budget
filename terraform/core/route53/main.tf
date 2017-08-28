@@ -1,3 +1,4 @@
+# TODO move this out into a separate repo?
 provider "aws" {
   region  = "${var.region}"
   profile = "${var.profile}"
