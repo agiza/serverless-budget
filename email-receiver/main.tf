@@ -6,6 +6,14 @@ variable "key" {
   type = "string"
 }
 
+variable "email_prefix" {
+  type = "string"
+}
+
+variable "email_bucket" {
+  type = "string"
+}
+
 variable "api_key_s3_path" {
   type = "string"
 }
@@ -84,6 +92,8 @@ resource "aws_lambda_function" "email_receiver" {
     variables = {
       api_key_s3_path = "${var.api_key_s3_path}"
       sns_topic_arn   = "${var.sns_topic_arn}"
+      email_bucket    = "${var.email_bucket}"
+      email_prefix    = "${var.email_prefix}"
     }
   }
 

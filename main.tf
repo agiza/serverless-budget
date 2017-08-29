@@ -40,8 +40,53 @@ variable "bucket" {
   default = "yangmillstheory-budget"
 }
 
+variable "s3_email_prefix" {
+  default = "email"
+}
+
 resource "aws_s3_bucket" "app" {
   bucket = "${var.bucket}"
+}
+
+data "aws_iam_policy_document" "ses_to_s3" {
+  statement {
+    sid = "1"
+
+    actions = [
+      "s3:PutObject",
+    ]
+
+    resources = [
+      "${aws_s3_bucket.app.arn}/*",
+    ]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ses.amazonaws.com"]
+    }
+  }
+
+  statement {
+    sid = "2"
+
+    actions = [
+      "s3:GetObject"
+    ]
+
+    resources = [
+      "${aws_s3_bucket.app.arn}/*",
+    ]
+
+    principals {
+      type = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "app_bucket" {
+  bucket = "${aws_s3_bucket.app.id}"
+  policy = "${data.aws_iam_policy_document.ses_to_s3.json}"
 }
 
 resource "aws_sns_topic_policy" "sns_publish" {
@@ -50,14 +95,18 @@ resource "aws_sns_topic_policy" "sns_publish" {
 }
 
 module "email_receiver" {
+  bucket          = "${var.bucket}"
   source          = "./email-receiver"
   api_key_s3_path = "api_key_s3_path_placeholder"
-  bucket          = "${var.bucket}"
   key             = "email_receiver.zip"
+  email_bucket    = "${var.bucket}"
+  email_prefix    = "${var.s3_email_prefix}"
   sns_topic_arn   = "${module.budget_update.ok_arn}"
   alarm_arn       = "${module.budget_update.error_arn}"
 }
 
+#########################
+# set up SES receipt rule
 variable "budget_rule_set_name" {
   default = "budget-tracking"
 }
@@ -78,14 +127,21 @@ resource "aws_ses_receipt_rule" "update_budget" {
   scan_enabled = true
   tls_policy   = "Require"
 
+  s3_action {
+    bucket_name       = "${var.bucket}"
+    object_key_prefix = "${var.s3_email_prefix}"
+    position          = 1
+  }
+
   lambda_action {
     function_arn    = "${module.email_receiver.lambda_arn}"
     invocation_type = "Event"
-    position        = 1
+    position        = 2
   }
 
   depends_on = [
     "module.email_receiver",
+    "aws_s3_bucket_policy.app_bucket",
   ]
 }
 

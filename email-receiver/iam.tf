@@ -49,6 +49,32 @@ resource "aws_iam_policy_attachment" "lambda_to_sns" {
   policy_arn = "${aws_iam_policy.sns_publish.arn}"
 }
 
+data "aws_iam_policy_document" "s3_get_object" {
+  statement {
+    sid = "1"
+
+    actions = [
+      "s3:GetObject",
+    ]
+
+    resources = ["arn:aws:s3:::${var.email_bucket}/*"]
+  }
+}
+
+resource "aws_iam_policy" "s3_get_object" {
+  name   = "s3-get-object"
+  policy = "${data.aws_iam_policy_document.s3_get_object.json}"
+}
+
+resource "aws_iam_policy_attachment" "lambda_to_s3" {
+  roles = [
+    "${aws_iam_role.lambda_basic_execution.name}",
+  ]
+
+  name       = "lambda-to-s3"
+  policy_arn = "${aws_iam_policy.s3_get_object.arn}"
+}
+
 data "aws_iam_policy_document" "sqs_publish" {
   statement {
     sid = "1"
