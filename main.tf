@@ -3,6 +3,17 @@ provider "aws" {
   profile = "yangmillstheory"
 }
 
+data "terraform_remote_state" "credentials" {
+  backend = "s3"
+
+  config {
+    profile = "yangmillstheory"
+    bucket  = "yangmillstheory-terraform-states"
+    region  = "us-west-2"
+    key     = "credentials.tfstate"
+  }
+}
+
 # this bucket was created outside of Terraform
 terraform {
   backend "s3" {
@@ -10,29 +21,6 @@ terraform {
     bucket  = "yangmillstheory-terraform-states"
     region  = "us-west-2"
     key     = "budget.tfstate"
-  }
-}
-
-module "budget_update" {
-  source = "./budget-update"
-}
-
-data "aws_iam_policy_document" "sns_publish" {
-  statement {
-    sid = "1"
-
-    actions = [
-      "sns:Publish",
-    ]
-
-    resources = [
-      "${module.budget_update.ok_arn}",
-    ]
-
-    principals {
-      type        = "AWS"
-      identifiers = ["*"]
-    }
   }
 }
 
@@ -44,6 +32,7 @@ variable "s3_email_prefix" {
   default = "email"
 }
 
+# S3 bucket for entire application
 resource "aws_s3_bucket" "app" {
   bucket = "${var.bucket}"
 }
@@ -89,15 +78,11 @@ resource "aws_s3_bucket_policy" "app_bucket" {
   policy = "${data.aws_iam_policy_document.ses_to_s3.json}"
 }
 
-resource "aws_sns_topic_policy" "sns_publish" {
-  arn    = "${module.budget_update.ok_arn}"
-  policy = "${data.aws_iam_policy_document.sns_publish.json}"
-}
-
+# lambda email receiver
 module "email_receiver" {
   bucket          = "${var.bucket}"
   source          = "./email-receiver"
-  api_key_s3_path = "api_key_s3_path_placeholder"
+  api_key_s3_path = "${data.terraform_remote_state.credentials.google_api_key_s3_path}"
   key             = "email_receiver.zip"
   email_bucket    = "${var.bucket}"
   email_prefix    = "${var.s3_email_prefix}"
@@ -105,8 +90,7 @@ module "email_receiver" {
   alarm_arn       = "${module.budget_update.error_arn}"
 }
 
-#########################
-# set up SES receipt rule
+# SES receipt rule to store email in S3 and invoke Lambda
 variable "budget_rule_set_name" {
   default = "budget-tracking"
 }
@@ -153,3 +137,9 @@ resource "aws_ses_active_receipt_rule_set" "budget_tracking" {
   rule_set_name = "${var.budget_rule_set_name}"
   depends_on    = ["aws_ses_receipt_rule_set.budget_tracking"]
 }
+
+# SNS budget-related topics
+module "budget_update" {
+  source = "./budget-update"
+}
+
