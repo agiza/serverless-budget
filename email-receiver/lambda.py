@@ -70,8 +70,10 @@ def _get_source_and_price(record):
         maintype, subtype = part.get_content_maintype(), part.get_content_subtype()
         if maintype != 'text' or subtype != 'plain':
             continue
+        price = part.get_payload()
+        price = price.strip()
         try:
-            price = float(part.get_payload())
+            price = float(price)
         except Exception as e:
             logger.info("Couldn't get price: {}".format(e))
         else:
