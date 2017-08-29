@@ -96,6 +96,7 @@ def _get_email_bytes(record):
     s3_obj = s3_obj['Body']
     return s3_obj.read()
 
+
 def _get_spreadsheet_rows(record):
     # read everything into memory, it's expected to be quite small
     message = email.message_from_bytes(_get_email_bytes(record))
