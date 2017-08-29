@@ -80,14 +80,15 @@ resource "aws_s3_bucket_policy" "app_bucket" {
 
 # lambda email receiver
 module "email_receiver" {
-  bucket          = "${var.bucket}"
-  source          = "./email-receiver"
-  api_key_s3_path = "${data.terraform_remote_state.credentials.google_api_key_s3_path}"
-  key             = "email_receiver.zip"
-  email_bucket    = "${var.bucket}"
-  email_prefix    = "${var.s3_email_prefix}"
-  sns_topic_arn   = "${module.budget_update.ok_arn}"
-  alarm_arn       = "${module.budget_update.error_arn}"
+  bucket            = "${var.bucket}"
+  source            = "./email-receiver"
+  api_key_s3_bucket = "${data.terraform_remote_state.credentials.google_api_key_s3_bucket}"
+  api_key_s3_key    = "${data.terraform_remote_state.credentials.google_api_key_s3_key}"
+  key               = "email_receiver.zip"
+  email_bucket      = "${var.bucket}"
+  email_prefix      = "${var.s3_email_prefix}"
+  sns_topic_arn     = "${module.budget_update.ok_arn}"
+  alarm_arn         = "${module.budget_update.error_arn}"
 }
 
 # SES receipt rule to store email in S3 and invoke Lambda
@@ -142,4 +143,3 @@ resource "aws_ses_active_receipt_rule_set" "budget_tracking" {
 module "budget_update" {
   source = "./budget-update"
 }
-

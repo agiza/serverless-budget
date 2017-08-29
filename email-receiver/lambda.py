@@ -3,7 +3,16 @@ import os
 import logging
 import sys
 import email
+from collections import namedtuple
+from datetime import datetime, timezone
+from multiprocessing.dummy import Pool as ThreadPool
 from botocore.vendored import requests
+
+
+SpreadSheetRow = namedtuple(
+    'SpreadSheetRow',
+    ['who', 'when', 'what', 'price']
+)
 
 
 def get_logger():
@@ -20,6 +29,21 @@ def get_logger():
 logger = get_logger()
 SNS = boto3.client('sns')
 S3  = boto3.client('s3')
+thread_pool = ThreadPool(8)
+
+
+def _get_google_api_key():
+    api_key = S3.get_object(
+        Bucket=os.getenv('api_key_s3_bucket'),
+        Key=os.getenv('api_key_s3_key')
+    )
+    api_key = api_key['Body']
+    api_key = api_key.read()
+    api_key = str(api_key)
+    return api_key
+
+
+api_key = _get_google_api_key()
 
 
 def _is_clean(record):
@@ -54,17 +78,23 @@ def _get_message_id(record):
     return record['ses']['mail']['messageId']
 
 
-def _get_source_and_price(record):
+def _to_local_format(utc_timestamp):
+    dt = datetime.strptime(utc_timestamp, '%a, %d %b %Y %I:%M:%S %z')
+    dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(tz=None)
+    return dt.strftime('%b %d, %Y %I:%M:%S %p')
+
+
+def _get_spreadsheet_rows(record):
     bucket = os.getenv('email_bucket')
     message_id = _get_message_id(record)
     prefix = os.getenv('email_prefix')
     s3_key = '{}/{}'.format(prefix, message_id)
     logger.info('Getting email from bucket {} with key {}'.format(bucket, s3_key))
     s3_obj = S3.get_object(Bucket=bucket, Key=s3_key)
+    s3_obj = s3_obj['Body']
     # read everything into memory, it's expected to be quite small
-    message = email.message_from_bytes(
-        s3_obj['Body'].read()
-    )
+    message = email.message_from_bytes(s3_obj.read())
     price = None
     for part in message.walk():
         # this algorithm is so fragile; see
@@ -83,19 +113,21 @@ def _get_source_and_price(record):
             break
     if not price:
         raise Exception('No price found for message_id {}'.format(message_id))
-    return message['Subject'], price
+    return SpreadSheetRow(
+        message['From'], _to_local_format(message['Date']), message['Subject'], price)
 
 
 def handler(event, *args):
     # logger.info('Received event: {}'.format(event))
-    for record in event['Records']:
-        if not _is_clean(record):
-            logger.info('{} is not clean'.format(record))
-            continue
-        source, price = _get_source_and_price(record)
-        logger.info('Got source {} and price {}.'.format(source, price))
-        # _update_budget(record)
-        # _notify_update(record)
+    logger.info('Got API key: {}'.format(api_key))
+    records = [
+        record for record in event['Records']
+        if _is_clean(record)
+    ]
+    rows = thread_pool.map(_get_spreadsheet_rows, records)
+    logger.info('Got rows {}'.format(rows))
+    # _update_budget(record)
+    # _notify_update(record)
     logger.info('Processed event.')
 
 

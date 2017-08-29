@@ -17,8 +17,12 @@ variable "bucket" {
   default = "yangmillstheory-credentials"
 }
 
-output "google_api_key_s3_path" {
-  value = "${var.bucket}/${aws_s3_bucket_object.google_api_key.id}"
+output "google_api_key_s3_bucket" {
+  value = "${var.bucket}"
+}
+
+output "google_api_key_s3_key" {
+  value = "${aws_s3_bucket_object.google_api_key.id}"
 }
 
 resource "aws_s3_bucket" "credentials" {
