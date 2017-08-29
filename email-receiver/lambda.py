@@ -84,6 +84,7 @@ def _to_local_format(utc_timestamp):
     dt = dt.astimezone(tz=None)
     return dt.strftime('%b %d, %Y %I:%M:%S %p')
 
+
 def _get_email_bytes(record):
     message_id = _get_message_id(record)
     bucket = os.getenv('email_bucket')
