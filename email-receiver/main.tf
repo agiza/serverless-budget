@@ -1,3 +1,11 @@
+variable "bucket" {
+  type = "string"
+}
+
+variable "key" {
+  type = "string"
+}
+
 variable "api_key_s3_path" {
   type = "string"
 }
@@ -54,9 +62,16 @@ data "archive_file" "lambda_zip" {
   output_path = "email-receiver/lambda.zip"
 }
 
+resource "aws_s3_bucket_object" "lambda" {
+  bucket = "${var.bucket}"
+  key    = "${var.key}"
+  source = "${data.archive_file.lambda_zip.output_path}"
+}
+
 resource "aws_lambda_function" "email_receiver" {
   function_name = "${var.lambda_name}"
-  filename      = "email-receiver/lambda.zip"
+  s3_bucket     = "${var.bucket}"
+  s3_key        = "${var.key}"
 
   dead_letter_config {
     target_arn = "${aws_sqs_queue.email_receiver_deadletter.arn}"
@@ -75,4 +90,8 @@ resource "aws_lambda_function" "email_receiver" {
   source_code_hash = "${data.archive_file.lambda_zip.output_base64sha256}"
 
   timeout = 300
+
+  depends_on = [
+    "aws_s3_bucket_object.lambda",
+  ]
 }

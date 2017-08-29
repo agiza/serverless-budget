@@ -2,7 +2,7 @@ import logging
 
 
 def get_logger():
-    logger = logging.getLogger(__name_)
+    logger = logging.getLogger(__name__)
     for handler in logger.handlers:
         logger.removeHandler(handler)
     handler = logging.StreamHandler(sys.stdout)
@@ -17,6 +17,7 @@ logger = get_logger()
 
 def handler(*args):
     logger.info('lambda!')
+    logger.info('hello!')
     logger.info(*args)
 
 

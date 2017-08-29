@@ -49,4 +49,3 @@ resource "aws_route53_record" "receive_email" {
     "10 inbound-smtp.${var.region}.amazonaws.com",
   ]
 }
-

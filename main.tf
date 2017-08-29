@@ -36,6 +36,14 @@ data "aws_iam_policy_document" "sns_publish" {
   }
 }
 
+variable "bucket" {
+  default = "yangmillstheory-budget"
+}
+
+resource "aws_s3_bucket" "app" {
+  bucket = "${var.bucket}"
+}
+
 resource "aws_sns_topic_policy" "sns_publish" {
   arn    = "${module.budget_update.ok_arn}"
   policy = "${data.aws_iam_policy_document.sns_publish.json}"
@@ -44,6 +52,8 @@ resource "aws_sns_topic_policy" "sns_publish" {
 module "email_receiver" {
   source          = "./email-receiver"
   api_key_s3_path = "api_key_s3_path_placeholder"
+  bucket          = "${var.bucket}"
+  key             = "email_receiver.zip"
   sns_topic_arn   = "${module.budget_update.ok_arn}"
   alarm_arn       = "${module.budget_update.error_arn}"
 }
@@ -71,7 +81,7 @@ resource "aws_ses_receipt_rule" "update_budget" {
   lambda_action {
     function_arn    = "${module.email_receiver.lambda_arn}"
     invocation_type = "Event"
-    position        = 0
+    position        = 1
   }
 
   depends_on = [
