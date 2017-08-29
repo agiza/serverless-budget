@@ -66,12 +66,14 @@ resource "aws_s3_bucket_object" "lambda" {
   bucket = "${var.bucket}"
   key    = "${var.key}"
   source = "${data.archive_file.lambda_zip.output_path}"
+  etag   = "${data.archive_file.lambda_zip.output_base64sha256}"
 }
 
 resource "aws_lambda_function" "email_receiver" {
-  function_name = "${var.lambda_name}"
-  s3_bucket     = "${var.bucket}"
-  s3_key        = "${var.key}"
+  function_name     = "${var.lambda_name}"
+  s3_bucket         = "${var.bucket}"
+  s3_key            = "${var.key}"
+  s3_object_version = "${aws_s3_bucket_object.lambda.version_id}"
 
   dead_letter_config {
     target_arn = "${aws_sqs_queue.email_receiver_deadletter.arn}"
@@ -90,8 +92,4 @@ resource "aws_lambda_function" "email_receiver" {
   source_code_hash = "${data.archive_file.lambda_zip.output_base64sha256}"
 
   timeout = 300
-
-  depends_on = [
-    "aws_s3_bucket_object.lambda",
-  ]
 }
