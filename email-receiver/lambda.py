@@ -84,17 +84,21 @@ def _to_local_format(utc_timestamp):
     dt = dt.astimezone(tz=None)
     return dt.strftime('%b %d, %Y %I:%M:%S %p')
 
-
-def _get_spreadsheet_rows(record):
-    bucket = os.getenv('email_bucket')
+def _get_email_bytes(record):
     message_id = _get_message_id(record)
+    bucket = os.getenv('email_bucket')
     prefix = os.getenv('email_prefix')
     s3_key = '{}/{}'.format(prefix, message_id)
-    logger.info('Getting email from bucket {} with key {}'.format(bucket, s3_key))
+    logger.info(
+        'Getting email from bucket {} with key {}'.format(bucket, s3_key)
+    )
     s3_obj = S3.get_object(Bucket=bucket, Key=s3_key)
     s3_obj = s3_obj['Body']
+    return s3_obj.read()
+
+def _get_spreadsheet_rows(record):
     # read everything into memory, it's expected to be quite small
-    message = email.message_from_bytes(s3_obj.read())
+    message = email.message_from_bytes(_get_email_bytes(record))
     price = None
     for part in message.walk():
         # this algorithm is so fragile; see
