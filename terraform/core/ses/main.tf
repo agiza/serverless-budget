@@ -19,17 +19,11 @@ data "terraform_remote_state" "route53" {
   config {
     profile = "yangmillstheory"
     bucket  = "yangmillstheory-terraform-states"
-    region  = "us-west-2"
+    region  = "${var.region}"
     key     = "route53.tfstate"
   }
 }
 
-# allow SES to receive emails on our behalf, see
-#
-#   http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email.html
-#
-# FIXME this was done in the console
-#
 resource "aws_ses_domain_identity" "domain" {
   domain = "${data.terraform_remote_state.route53.primary_zone_name}"
 }
@@ -41,9 +35,6 @@ resource "aws_route53_record" "text_verify" {
   ttl     = "1800"
 
   records = [
-    # FIXME: this was done in the console
-    "eOtNsI8wkBwxuyhiHUtEeGHvDHCZb6gLeHL0kPPHQMA=",
-
     "${aws_ses_domain_identity.domain.verification_token}",
   ]
 }
@@ -55,6 +46,7 @@ resource "aws_route53_record" "receive_email" {
   ttl     = "1800"
 
   records = [
-    "10 inbound-smtp.us-east-1.amazonaws.com",
+    "10 inbound-smtp.${var.region}.amazonaws.com",
   ]
 }
+
