@@ -1,4 +1,5 @@
 import logging
+import sys
 
 
 def get_logger():
@@ -18,7 +19,7 @@ logger = get_logger()
 def handler(*args):
     logger.info('lambda!')
     logger.info('hello!')
-    logger.info(*args)
+    logger.info(args)
     logger.info('bye!')
 
 

@@ -62,6 +62,7 @@ data "archive_file" "lambda_zip" {
   output_path = "email-receiver/lambda.zip"
 }
 
+# annoying issue here: https://github.com/hashicorp/terraform/issues/15594
 resource "aws_s3_bucket_object" "lambda" {
   bucket = "${var.bucket}"
   key    = "${var.key}"
