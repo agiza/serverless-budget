@@ -3,6 +3,7 @@ import os
 import logging
 import sys
 import email
+from botocore.vendored import requests
 
 
 def get_logger():
@@ -66,7 +67,9 @@ def _get_source_and_price(record):
     )
     price = None
     for part in message.walk():
-        # this algorithm is so fragile; see https://docs.python.org/3/library/email-examples.html#examples-using-the-provisional-api
+        # this algorithm is so fragile; see
+        #
+        #   https://docs.python.org/3/library/email-examples.html#examples-using-the-provisional-api
         maintype, subtype = part.get_content_maintype(), part.get_content_subtype()
         if maintype != 'text' or subtype != 'plain':
             continue

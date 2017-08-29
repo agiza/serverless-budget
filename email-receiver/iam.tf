@@ -57,7 +57,7 @@ data "aws_iam_policy_document" "s3_get_object" {
       "s3:GetObject",
     ]
 
-    resources = ["arn:aws:s3:::${var.email_bucket}/*"]
+    resources = ["arn:aws:s3:::*"]
   }
 }
 

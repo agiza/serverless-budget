@@ -70,7 +70,7 @@ data "aws_iam_policy_document" "ses_to_s3" {
     sid = "2"
 
     actions = [
-      "s3:GetObject"
+      "s3:GetObject",
     ]
 
     resources = [
@@ -78,7 +78,7 @@ data "aws_iam_policy_document" "ses_to_s3" {
     ]
 
     principals {
-      type = "Service"
+      type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
     }
   }
