@@ -3,17 +3,6 @@ provider "aws" {
   profile = "yangmillstheory"
 }
 
-data "terraform_remote_state" "credentials" {
-  backend = "s3"
-
-  config {
-    profile = "yangmillstheory"
-    bucket  = "yangmillstheory-terraform-states"
-    region  = "us-west-2"
-    key     = "credentials.tfstate"
-  }
-}
-
 # this bucket was created outside of Terraform
 terraform {
   backend "s3" {
@@ -30,6 +19,10 @@ variable "bucket" {
 
 variable "s3_email_prefix" {
   default = "email"
+}
+
+variable "spreadsheet_key" {
+  default = "budget.csv"
 }
 
 # S3 bucket for entire application
@@ -78,17 +71,31 @@ resource "aws_s3_bucket_policy" "app_bucket" {
   policy = "${data.aws_iam_policy_document.ses_to_s3.json}"
 }
 
+resource "aws_s3_bucket_object" "spreadsheet_template" {
+  bucket = "${var.bucket}"
+  key    = "${var.spreadsheet_key}.tmpl"
+  source = "${var.spreadsheet_key}"
+  etag   = "${md5(file("${var.spreadsheet_key}"))}"
+}
+
+resource "aws_s3_bucket_object" "spreadsheet" {
+  bucket = "${var.bucket}"
+  key    = "${var.spreadsheet_key}"
+  source = "${var.spreadsheet_key}"
+  etag   = "${md5(file("${var.spreadsheet_key}"))}"
+}
+
 # lambda email receiver
 module "email_receiver" {
-  bucket            = "${var.bucket}"
-  source            = "./email-receiver"
-  api_key_s3_bucket = "${data.terraform_remote_state.credentials.google_api_key_s3_bucket}"
-  api_key_s3_key    = "${data.terraform_remote_state.credentials.google_api_key_s3_key}"
-  key               = "email_receiver.zip"
-  email_bucket      = "${var.bucket}"
-  email_prefix      = "${var.s3_email_prefix}"
-  sns_topic_arn     = "${module.budget_update.ok_arn}"
-  alarm_arn         = "${module.budget_update.error_arn}"
+  bucket             = "${var.bucket}"
+  source             = "./email-receiver"
+  spreadsheet_bucket = "${var.bucket}"
+  spreadsheet_key    = "${var.spreadsheet_key}"
+  key                = "email_receiver.zip"
+  email_bucket       = "${var.bucket}"
+  email_prefix       = "${var.s3_email_prefix}"
+  sns_topic_arn      = "${module.budget_update.ok_arn}"
+  alarm_arn          = "${module.budget_update.error_arn}"
 }
 
 # SES receipt rule to store email in S3 and invoke Lambda

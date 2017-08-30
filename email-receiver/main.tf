@@ -14,11 +14,11 @@ variable "email_bucket" {
   type = "string"
 }
 
-variable "api_key_s3_bucket" {
+variable "spreadsheet_bucket" {
   type = "string"
 }
 
-variable "api_key_s3_key" {
+variable "spreadsheet_key" {
   type = "string"
 }
 
@@ -94,11 +94,11 @@ resource "aws_lambda_function" "email_receiver" {
 
   environment {
     variables = {
-      api_key_s3_bucket = "${var.api_key_s3_bucket}"
-      api_key_s3_key    = "${var.api_key_s3_key}"
-      sns_topic_arn     = "${var.sns_topic_arn}"
-      email_bucket      = "${var.email_bucket}"
-      email_prefix      = "${var.email_prefix}"
+      spreadsheet_bucket = "${var.spreadsheet_bucket}"
+      spreadsheet_key    = "${var.spreadsheet_key}"
+      sns_topic_arn      = "${var.sns_topic_arn}"
+      email_bucket       = "${var.email_bucket}"
+      email_prefix       = "${var.email_prefix}"
     }
   }
 

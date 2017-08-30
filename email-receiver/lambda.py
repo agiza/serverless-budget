@@ -1,18 +1,18 @@
 import boto3
+import csv
 import os
 import logging
 import sys
 import email
-from collections import namedtuple
 from datetime import datetime, timezone
+from urllib.parse import urljoin
 from multiprocessing.dummy import Pool as ThreadPool
 from botocore.vendored import requests
 
 
-SpreadSheetRow = namedtuple(
-    'SpreadSheetRow',
-    ['who', 'when', 'what', 'price']
-)
+spreadsheet_fields = ['who', 'when', 'what', 'price']
+local_spreadsheet_path = '/tmp/{}'.format(os.getenv('spreadsheet_key'))
+MAX_PERIOD_SPEND = 250
 
 
 def get_logger():
@@ -27,27 +27,13 @@ def get_logger():
 
 
 logger = get_logger()
-SNS = boto3.client('sns')
-S3  = boto3.client('s3')
+sns = boto3.client('sns')
+s3  = boto3.client('s3')
 thread_pool = ThreadPool(8)
 
 
-def _get_google_api_key():
-    api_key = S3.get_object(
-        Bucket=os.getenv('api_key_s3_bucket'),
-        Key=os.getenv('api_key_s3_key')
-    )
-    api_key = api_key['Body']
-    api_key = api_key.read()
-    api_key = str(api_key)
-    return api_key
-
-
-api_key = _get_google_api_key()
-
-
 def _is_clean(record):
-    receipt_dict  = _get_receipt_dict(record)
+    receipt_dict  = record['ses']['receipt']
     keys_to_check = {
         '{}Verdict'.format(key_prefix)
         for key_prefix in {'spf', 'virus', 'spam'}
@@ -56,22 +42,6 @@ def _is_clean(record):
         if receipt_dict[key]['status'] != 'PASS':
             return False
     return True
-
-
-def _get_receipt_dict(record):
-    return record['ses']['receipt']
-
-
-def _get_headers(record):
-    return record['ses']['mail']['headers']
-
-
-def _get_header_value(record, header_name):
-    assert isinstance(header_name, str)
-    for header_dict in _get_headers(record):
-        if header_dict['name'].lower() == header_name.lower():
-            return header_dict['value']
-    raise ValueError('Found no header with name {}'.format(header_name))
 
 
 def _get_message_id(record):
@@ -93,7 +63,7 @@ def _get_email_bytes(record):
     logger.info(
         'Getting email from bucket {} with key {}'.format(bucket, s3_key)
     )
-    s3_obj = S3.get_object(Bucket=bucket, Key=s3_key)
+    s3_obj = s3.get_object(Bucket=bucket, Key=s3_key)
     s3_obj = s3_obj['Body']
     return s3_obj.read()
 
@@ -119,21 +89,55 @@ def _get_spreadsheet_rows(record):
             break
     if not price:
         raise Exception('No price found for message_id {}'.format(message_id))
-    return SpreadSheetRow(
-        message['From'], _to_local_format(message['Date']), message['Subject'], price)
+    return message['From'], _to_local_format(message['Date']), message['Subject'], price
+
+
+def _download_spreadsheet():
+    key = os.getenv('spreadsheet_key')
+    s3.download_file(os.getenv('spreadsheet_bucket'), key, local_spreadsheet_path)
+
+
+def _update_spreadsheet(*spreadsheet_rows):
+    logger.info('Updating local spreadsheet.')
+    with open(local_spreadsheet_path, 'a', newline='') as f:
+        csv.writer(f).writerows(spreadsheet_rows)
+    logger.info('Updated local spreadsheet.')
+
+
+def _commit_spreadsheet():
+    logger.info('Committing spreadsheet.')
+    with open(local_spreadsheet_path, 'rb') as f:
+        s3.put_object(
+            Bucket=os.getenv('spreadsheet_bucket'),
+            Key=os.getenv('spreadsheet_key'),
+            Body=f,
+        )
+    logger.info('Committed spreadsheet.')
+
+
+def _notify_update(spreadsheet_rows, period_spend):
+    logger.info('Current spend: ${:.2f}'.format(period_spend))
+
+
+def _get_period_spend(*spreadsheet_rows):
+    with open(local_spreadsheet_path, newline='') as f:
+        prices = [float(row['price']) for row in csv.DictReader(f)]
+    return sum(prices)
 
 
 def handler(event, *args):
     # logger.info('Received event: {}'.format(event))
-    logger.info('Got API key: {}'.format(api_key))
     records = [
         record for record in event['Records']
         if _is_clean(record)
     ]
-    rows = thread_pool.map(_get_spreadsheet_rows, records)
-    logger.info('Got rows {}'.format(rows))
-    # _update_budget(record)
-    # _notify_update(record)
+    spreadsheet_rows = thread_pool.map(_get_spreadsheet_rows, records)
+    logger.info('Got spreadsheet rows {}'.format(spreadsheet_rows))
+    _download_spreadsheet()
+    period_spend = _get_period_spend()
+    _update_spreadsheet(*spreadsheet_rows)
+    _commit_spreadsheet()
+    _notify_update(spreadsheet_rows, period_spend)
     logger.info('Processed event.')
 
 
