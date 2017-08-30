@@ -13,7 +13,7 @@ terraform {
   }
 }
 
-output "basic_role_arn" {
+output "basic_execution_role_arn" {
   value = "${aws_iam_role.lambda_basic_execution.arn}"
 }
 
@@ -42,7 +42,6 @@ resource "aws_iam_policy_attachment" "lambda_to_cloudwatch" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-
 data "aws_iam_policy_document" "sns_publish" {
   statement {
     sid = "1"
@@ -51,7 +50,7 @@ data "aws_iam_policy_document" "sns_publish" {
       "sns:Publish",
     ]
 
-    resources = ["arn:aws:sns:::*"]
+    resources = ["arn:aws:sns:us-west-2:079529114411:*"]
   }
 }
 
@@ -95,28 +94,28 @@ resource "aws_iam_policy_attachment" "lambda_to_s3" {
   policy_arn = "${aws_iam_policy.s3_get_object.arn}"
 }
 
-# data "aws_iam_policy_document" "sqs_publish" {
-#   statement {
-#     sid = "1"
-#
-#     actions = [
-#       "sqs:SendMessage",
-#     ]
-#
-#     resources = ["arn:aws:sqs:::*"]
-#   }
-# }
-#
-# resource "aws_iam_policy" "sqs_publish" {
-#   name   = "sqs-publish"
-#   policy = "${data.aws_iam_policy_document.sqs_publish.json}"
-# }
-#
-# resource "aws_iam_policy_attachment" "lambda_to_sqs" {
-#   roles = [
-#     "${aws_iam_role.lambda_basic_execution.name}",
-#   ]
-#
-#   name       = "lambda-to-sqs"
-#   policy_arn = "${aws_iam_policy.sqs_publish.arn}"
-# }
+data "aws_iam_policy_document" "sqs_publish" {
+  statement {
+    sid = "1"
+
+    actions = [
+      "sqs:SendMessage",
+    ]
+
+    resources = ["arn:aws:sqs:us-west-2:079529114411:*"]
+  }
+}
+
+resource "aws_iam_policy" "sqs_publish" {
+  name   = "sqs-publish"
+  policy = "${data.aws_iam_policy_document.sqs_publish.json}"
+}
+
+resource "aws_iam_policy_attachment" "lambda_to_sqs" {
+  roles = [
+    "${aws_iam_role.lambda_basic_execution.name}",
+  ]
+
+  name       = "lambda-to-sqs"
+  policy_arn = "${aws_iam_policy.sqs_publish.arn}"
+}

@@ -21,8 +21,12 @@ variable "s3_email_prefix" {
   default = "email"
 }
 
-variable "spreadsheet_key" {
+variable "csv_key" {
   default = "budget.csv"
+}
+
+variable "csv_template_key" {
+  default = "budget.csv.tmpl"
 }
 
 # S3 bucket for entire application
@@ -71,31 +75,43 @@ resource "aws_s3_bucket_policy" "app_bucket" {
   policy = "${data.aws_iam_policy_document.ses_to_s3.json}"
 }
 
-resource "aws_s3_bucket_object" "spreadsheet_template" {
+resource "aws_s3_bucket_object" "csv_template" {
   bucket = "${var.bucket}"
-  key    = "${var.spreadsheet_key}.tmpl"
-  source = "${var.spreadsheet_key}"
-  etag   = "${md5(file("${var.spreadsheet_key}"))}"
+  key    = "${var.csv_template_key}"
+  source = "${var.csv_key}"
+  etag   = "${md5(file("${var.csv_key}"))}"
 }
 
-resource "aws_s3_bucket_object" "spreadsheet" {
+resource "aws_s3_bucket_object" "csv" {
   bucket = "${var.bucket}"
-  key    = "${var.spreadsheet_key}"
-  source = "${var.spreadsheet_key}"
-  etag   = "${md5(file("${var.spreadsheet_key}"))}"
+  key    = "${var.csv_key}"
+  source = "${var.csv_key}"
+  etag   = "${md5(file("${var.csv_key}"))}"
 }
 
 # lambda email receiver
 module "email_receiver" {
-  bucket             = "${var.bucket}"
-  source             = "./email-receiver"
-  spreadsheet_bucket = "${var.bucket}"
-  spreadsheet_key    = "${var.spreadsheet_key}"
-  key                = "email_receiver.zip"
-  email_bucket       = "${var.bucket}"
-  email_prefix       = "${var.s3_email_prefix}"
-  sns_topic_arn      = "${module.budget_update.ok_arn}"
-  alarm_arn          = "${module.budget_update.error_arn}"
+  bucket        = "${var.bucket}"
+  source        = "./email-receiver"
+  csv_bucket    = "${var.bucket}"
+  csv_key       = "${var.csv_key}"
+  key           = "email_receiver.zip"
+  email_bucket  = "${var.bucket}"
+  email_prefix  = "${var.s3_email_prefix}"
+  sns_topic_arn = "${module.notify.ok_arn}"
+  alarm_arn     = "${module.notify.error_arn}"
+}
+
+# lambda budget reset
+module "budget_reset" {
+  bucket           = "${var.bucket}"
+  source           = "./reset"
+  csv_bucket       = "${var.bucket}"
+  csv_key          = "${var.csv_key}"
+  csv_template_key = "${var.csv_template_key}"
+  key              = "budget_reset.zip"
+  sns_topic_arn    = "${module.notify.reset_arn}"
+  alarm_arn        = "${module.notify.error_arn}"
 }
 
 # SES receipt rule to store email in S3 and invoke Lambda
@@ -147,6 +163,6 @@ resource "aws_ses_active_receipt_rule_set" "budget_tracking" {
 }
 
 # SNS budget-related topics
-module "budget_update" {
-  source = "./budget-update"
+module "notify" {
+  source = "./notify"
 }

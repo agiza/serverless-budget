@@ -6,14 +6,12 @@ import sys
 import email
 from datetime import datetime, timezone
 from collections import namedtuple
-from urllib.parse import urljoin
 from multiprocessing.dummy import Pool as ThreadPool
-from botocore.vendored import requests
 
 
-spreadsheet_fields = ['who', 'when', 'what', 'price']
-SpreadsheetRow = namedtuple('SpreadsheetRow', spreadsheet_fields)
-local_spreadsheet_path = '/tmp/{}'.format(os.getenv('spreadsheet_key'))
+csv_fields = ['who', 'when', 'what', 'price']
+CSVRow = namedtuple('CSVRow', csv_fields)
+LOCAL_CSV_PATH = '/tmp/{}'.format(os.getenv('csv_key'))
 allowed_senders = {'v.alvarez312@gmail.com', 'hchaides@gmail.com'}
 MAX_PERIOD_SPEND = 250
 
@@ -90,8 +88,8 @@ def _get_email_bytes(record):
     return s3_obj.read()
 
 
-def _get_spreadsheet_rows(record):
-    """Constructs and returns a SpreadsheetRow from email metadata.
+def _get_csv_rows(record):
+    """Constructs and returns a CSVRow from email metadata.
 
     :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
     """
@@ -115,76 +113,75 @@ def _get_spreadsheet_rows(record):
             break
     if not price:
         raise Exception('No price found for message_id {}'.format(message_id))
-    return SpreadsheetRow(
+    return CSVRow(
         message['From'], _to_local_format(message['Date']), message['Subject'], price)
 
 
-def _download_spreadsheet():
-    """Downloads the budget spreadsheet from S3."""
+def _download_csv():
+    """Downloads the budget csv from S3."""
     s3.download_file(
-        os.getenv('spreadsheet_bucket'),
-        os.getenv('spreadsheet_key'),
-        local_spreadsheet_path)
+        os.getenv('csv_bucket'),
+        os.getenv('csv_key'),
+        LOCAL_CSV_PATH
+    )
 
 
-def _update_spreadsheet(*spreadsheet_rows):
-    """Writes updates to the local downloaded spreadsheet.
+def _update_csv(*csv_rows):
+    """Writes updates to the local downloaded csv.
 
-    :param *spreadsheet_rows: any number of SpreadsheetRow
+    :param *csv_rows: any number of CSVRow
     """
-    logger.info('Updating local spreadsheet.')
-    with open(local_spreadsheet_path, 'a', newline='') as f:
-        csv.writer(f).writerows(spreadsheet_rows)
-    logger.info('Updated local spreadsheet.')
+    logger.info('Updating local csv.')
+    with open(LOCAL_CSV_PATH, 'a', newline='') as f:
+        csv.writer(f).writerows(csv_rows)
+    logger.info('Updated local csv.')
 
 
-def _commit_spreadsheet():
-    """Puts the updated downloaded spreadsheet back to S3."""
+def _commit_csv():
+    """Puts the updated downloaded csv back to S3."""
     if os.getenv('dry_run'):
         return
-    logger.info('Committing spreadsheet.')
-    with open(local_spreadsheet_path, 'rb') as f:
+    logger.info('Committing csv.')
+    with open(LOCAL_CSV_PATH, 'rb') as f:
         s3.put_object(
-            Bucket=os.getenv('spreadsheet_bucket'),
-            Key=os.getenv('spreadsheet_key'),
+            Bucket=os.getenv('csv_bucket'),
+            Key=os.getenv('csv_key'),
             Body=f,
         )
-    logger.info('Committed spreadsheet.')
+    logger.info('Committed csv.')
 
 
-def _notify_update(spreadsheet_rows, period_spend):
+def _notify_update(csv_rows, period_spend):
     """Sends a summary to an SNS topic of what updates have been applied, what
     the current spend is for the period, and how much is remaining. If we're over
     the maximum spend for the period, we mention this.
 
-    :param spreadsheet_rows: iterable of SpreadsheetRow
-    :param period_spend:     float representing how much has been spent in this period (including spreadsheet_rows)
+    :param csv_rows: iterable of CSVRow
+    :param period_spend:     float representing how much has been spent in this period (including csv_rows)
     """
-    def get_message_line(spreadsheet_row):
+    def get_message_line(csv_row):
         return ', '.join(
-            list(spreadsheet_row[:-1]) + ['${:.2f}'.format(spreadsheet_row[-1])]
+            list(csv_row[:-1]) + ['${:.2f}'.format(csv_row[-1])]
         )
 
-    message_lines = []
-    message_lines.append('Applied budget updates!')
-    message_lines.extend(map(get_message_line, spreadsheet_rows))
+    message_lines = list(map(get_message_line, csv_rows))
     message_lines.append('Total spend for period is now: ${:.2f}'.format(period_spend))
-    if period_spend >= MAX_PERIOD_SPEND:
-        message_lines.append("You're over limit!")
+    delta = MAX_PERIOD_SPEND - period_spend
+    if delta < 0:
+        message_lines.append('You went ${:.2f} over budget!'.format(delta))
+    message = os.linesep.join(message_lines)
     logger.info('Publishing update.')
-    sns.publish(
-        TopicArn=os.getenv('sns_topic_arn'),
-        Message=os.linesep.join(message_lines)
-    )
+    logger.info(message)
+    sns.publish(TopicArn=os.getenv('sns_topic_arn'), Message=message)
     logger.info('Published update.')
 
 
-def _get_period_spend(*spreadsheet_rows):
-    """Sums all the prices in the price column of the spreadsheet.
+def _get_period_spend(*csv_rows):
+    """Sums all the prices in the price column of the csv.
 
-    :param *spreadsheet_rows: any number of SpreadsheetRow
+    :param *csv_rows: any number of CSVRow
     """
-    with open(local_spreadsheet_path, newline='') as f:
+    with open(LOCAL_CSV_PATH, newline='') as f:
         prices = [float(row['price']) for row in csv.DictReader(f)]
     return sum(prices)
 
@@ -203,13 +200,13 @@ def handler(event, *args):
         record for record in event['Records']
         if _is_clean(record)
     ]
-    spreadsheet_rows = thread_pool.map(_get_spreadsheet_rows, records)
-    logger.info('Got spreadsheet rows {}'.format(spreadsheet_rows))
-    _download_spreadsheet()
-    _update_spreadsheet(*spreadsheet_rows)
+    csv_rows = thread_pool.map(_get_csv_rows, records)
+    logger.info('Got csv rows {}'.format(csv_rows))
+    _download_csv()
+    _update_csv(*csv_rows)
+    _commit_csv()
     period_spend = _get_period_spend()
-    _commit_spreadsheet()
-    _notify_update(spreadsheet_rows, period_spend)
+    _notify_update(csv_rows, period_spend)
     logger.info('Processed event.')
 
 

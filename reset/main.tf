@@ -6,19 +6,15 @@ variable "key" {
   type = "string"
 }
 
-variable "email_prefix" {
-  type = "string"
-}
-
-variable "email_bucket" {
-  type = "string"
-}
-
 variable "csv_bucket" {
   type = "string"
 }
 
 variable "csv_key" {
+  type = "string"
+}
+
+variable "csv_template_key" {
   type = "string"
 }
 
@@ -31,11 +27,11 @@ variable "alarm_arn" {
 }
 
 variable "lambda_name" {
-  default = "email-receiver"
+  default = "budget-reset"
 }
 
 output "lambda_arn" {
-  value = "${aws_lambda_function.email_receiver.arn}"
+  value = "${aws_lambda_function.budget_reset.arn}"
 }
 
 data "terraform_remote_state" "lambda" {
@@ -49,12 +45,12 @@ data "terraform_remote_state" "lambda" {
   }
 }
 
-resource "aws_sqs_queue" "email_receiver_deadletter" {
-  name = "email_receiver_deadletter"
+resource "aws_sqs_queue" "budget_reset_deadletter" {
+  name = "budget_reset_deadletter"
 }
 
 resource "aws_sqs_queue_policy" "lambda_to_deadletter" {
-  queue_url = "${aws_sqs_queue.email_receiver_deadletter.id}"
+  queue_url = "${aws_sqs_queue.budget_reset_deadletter.id}"
 
   policy = <<POLICY
 {
@@ -66,10 +62,10 @@ resource "aws_sqs_queue_policy" "lambda_to_deadletter" {
       "Effect": "Allow",
       "Principal": "*",
       "Action": "sqs:SendMessage",
-      "Resource": "${aws_sqs_queue.email_receiver_deadletter.arn}",
+      "Resource": "${aws_sqs_queue.budget_reset_deadletter.arn}",
       "Condition": {
         "ArnEquals": {
-          "aws:SourceArn": "${aws_sqs_queue.email_receiver_deadletter.arn}"
+          "aws:SourceArn": "${aws_sqs_queue.budget_reset_deadletter.arn}"
         }
       }
     }
@@ -79,7 +75,7 @@ POLICY
 }
 
 resource "aws_cloudwatch_metric_alarm" "deadletter_queue_alarm" {
-  alarm_name          = "Budget update failed!"
+  alarm_name          = "Budget reset failed!"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
   metric_name         = "ApproximateNumberOfMessagesVisible"
@@ -89,7 +85,7 @@ resource "aws_cloudwatch_metric_alarm" "deadletter_queue_alarm" {
   threshold           = 0
 
   dimensions = {
-    QueueName = "${aws_sqs_queue.email_receiver_deadletter.name}"
+    QueueName = "${aws_sqs_queue.budget_reset_deadletter.name}"
   }
 
   alarm_description         = "Triggers when number of messsages is greater than zero."
@@ -102,8 +98,8 @@ resource "aws_cloudwatch_metric_alarm" "deadletter_queue_alarm" {
 
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "email-receiver/lambda.py"
-  output_path = "email-receiver/lambda.zip"
+  source_file = "reset/lambda.py"
+  output_path = "reset/lambda.zip"
 }
 
 # annoying issue here: https://github.com/hashicorp/terraform/issues/15594
@@ -114,23 +110,22 @@ resource "aws_s3_bucket_object" "lambda" {
   etag   = "${data.archive_file.lambda_zip.output_base64sha256}"
 }
 
-resource "aws_lambda_function" "email_receiver" {
+resource "aws_lambda_function" "budget_reset" {
   function_name     = "${var.lambda_name}"
   s3_bucket         = "${var.bucket}"
   s3_key            = "${var.key}"
   s3_object_version = "${aws_s3_bucket_object.lambda.version_id}"
 
   dead_letter_config {
-    target_arn = "${aws_sqs_queue.email_receiver_deadletter.arn}"
+    target_arn = "${aws_sqs_queue.budget_reset_deadletter.arn}"
   }
 
   environment {
     variables = {
-      csv_bucket    = "${var.csv_bucket}"
-      csv_key       = "${var.csv_key}"
-      sns_topic_arn = "${var.sns_topic_arn}"
-      email_bucket  = "${var.email_bucket}"
-      email_prefix  = "${var.email_prefix}"
+      csv_bucket       = "${var.csv_bucket}"
+      csv_key          = "${var.csv_key}"
+      csv_template_key = "${var.csv_template_key}"
+      sns_topic_arn    = "${var.sns_topic_arn}"
     }
   }
 
@@ -142,13 +137,24 @@ resource "aws_lambda_function" "email_receiver" {
   timeout = 300
 }
 
-resource "aws_lambda_permission" "ses_invoke" {
+resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
+  statement_id  = "AllowInvokeFromCloudWatch"
+  principal     = "events.amazonaws.com"
+  action        = "lambda:InvokeFuncion"
   function_name = "${var.lambda_name}"
-  action        = "lambda:InvokeFunction"
-  principal     = "ses.amazonaws.com"
-  statement_id  = "AllowInvokeFromSES"
 
   depends_on = [
-    "aws_lambda_function.email_receiver",
+    "aws_lambda_function.budget_reset",
   ]
+}
+
+resource "aws_cloudwatch_event_rule" "every_saturday_12am_pst" {
+  name                = "every-saturday-12am-pst"
+  description         = "Every Saturday at 12AM PST"
+  schedule_expression = "cron(0 7 ? * SAT *)"
+}
+
+resource "aws_cloudwatch_event_target" "budget_reset" {
+  rule = "${aws_cloudwatch_event_rule.every_saturday_12am_pst.name}"
+  arn  = "${aws_lambda_function.budget_reset.arn}"
 }
