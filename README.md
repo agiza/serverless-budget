@@ -7,6 +7,7 @@
 <p align="center">
   <img src="./budget.png">
 </p>
+
 Two CSV files live in S3, a template budget file, and the active budget, which is a copy of the template, but partially filled.
 
 
