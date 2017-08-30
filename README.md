@@ -5,7 +5,7 @@
 
 ## Why
 
-I got tired of saving receipts and manually updating a spreadsheet, and I didn't like the mobile interface for Google Sheets.
+I got tired of saving receipts and manually updating a spreadsheet, and I didn't like the mobile interface for Google Sheets. We also found other personal finance apps to be too complex or inaccurate.
 
 I think this approach is a bit simpler, as now I can
 
