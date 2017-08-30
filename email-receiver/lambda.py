@@ -36,6 +36,11 @@ thread_pool = ThreadPool(5)
 
 
 def _is_clean(record):
+    """Returns True if and only if the email has passed certain spam filter checks, and
+    if it's from an allowed sender, and False otherwise.
+
+    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
+    """
     receipt_dict  = record['ses']['receipt']
     receipt_keys_to_check = {
         '{}Verdict'.format(key_prefix)
@@ -50,10 +55,18 @@ def _is_clean(record):
 
 
 def _get_message_id(record):
+    """Pulls out the S3 key of the email corresponding to this record
+
+    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
+    """
     return record['ses']['mail']['messageId']
 
 
 def _to_local_format(utc_timestamp):
+    """Returns a readable local time string.
+
+    :param utc_timestamp: UTC formatted time string.
+    """
     dt = datetime.strptime(utc_timestamp, '%a, %d %b %Y %I:%M:%S %z')
     dt = dt.replace(tzinfo=timezone.utc)
     dt = dt.astimezone(tz=None)
@@ -61,6 +74,10 @@ def _to_local_format(utc_timestamp):
 
 
 def _get_email_bytes(record):
+    """Downloads the email from S3 given metadata. Returns raw bytes.
+
+    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
+    """
     message_id = _get_message_id(record)
     bucket = os.getenv('email_bucket')
     prefix = os.getenv('email_prefix')
@@ -74,6 +91,10 @@ def _get_email_bytes(record):
 
 
 def _get_spreadsheet_rows(record):
+    """Constructs and returns a SpreadsheetRow from email metadata.
+
+    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
+    """
     # read everything into memory, it's expected to be quite small
     message = email.message_from_bytes(_get_email_bytes(record))
     price = None
@@ -99,11 +120,18 @@ def _get_spreadsheet_rows(record):
 
 
 def _download_spreadsheet():
-    key = os.getenv('spreadsheet_key')
-    s3.download_file(os.getenv('spreadsheet_bucket'), key, local_spreadsheet_path)
+    """Downloads the budget spreadsheet from S3."""
+    s3.download_file(
+        os.getenv('spreadsheet_bucket'),
+        os.getenv('spreadsheet_key'),
+        local_spreadsheet_path)
 
 
 def _update_spreadsheet(*spreadsheet_rows):
+    """Writes updates to the local downloaded spreadsheet.
+
+    :param *spreadsheet_rows: any number of SpreadsheetRow
+    """
     logger.info('Updating local spreadsheet.')
     with open(local_spreadsheet_path, 'a', newline='') as f:
         csv.writer(f).writerows(spreadsheet_rows)
@@ -111,6 +139,7 @@ def _update_spreadsheet(*spreadsheet_rows):
 
 
 def _commit_spreadsheet():
+    """Puts the updated downloaded spreadsheet back to S3."""
     if os.getenv('dry_run'):
         return
     logger.info('Committing spreadsheet.')
@@ -124,6 +153,13 @@ def _commit_spreadsheet():
 
 
 def _notify_update(spreadsheet_rows, period_spend):
+    """Sends a summary to an SNS topic of what updates have been applied, what
+    the current spend is for the period, and how much is remaining. If we're over
+    the maximum spend for the period, we mention this.
+
+    :param spreadsheet_rows: iterable of SpreadsheetRow
+    :param period_spend:     float representing how much has been spent in this period (including spreadsheet_rows)
+    """
     def get_message_line(spreadsheet_row):
         return ', '.join(
             list(spreadsheet_row[:-1]) + ['${:.2f}'.format(spreadsheet_row[-1])]
@@ -144,12 +180,24 @@ def _notify_update(spreadsheet_rows, period_spend):
 
 
 def _get_period_spend(*spreadsheet_rows):
+    """Sums all the prices in the price column of the spreadsheet.
+
+    :param *spreadsheet_rows: any number of SpreadsheetRow
+    """
     with open(local_spreadsheet_path, newline='') as f:
         prices = [float(row['price']) for row in csv.DictReader(f)]
     return sum(prices)
 
 
 def handler(event, *args):
+    """Parses all sent emails, aggregates updates, downloads budget file from S3,
+    writes updates to downloaded file, commits back to S3, and sends a notification.
+
+    This isn't concurrency-safe, but we're expecting extremely little activity -
+    three runs a day at most with no concurrency.
+
+    :param event: see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
+    """
     logger.info('Received event: {}'.format(event))
     records = [
         record for record in event['Records']
