@@ -2,6 +2,18 @@
 
 > Automated budget tracking
 
+
+## Why
+
+I got tired of saving receipts and manually updating a spreadsheet, and I didn't like the mobile interface for Google Sheets.
+
+I think this approach is a bit simpler, as now I can
+
+* send a simple receipt email to commit an update
+* be notified when other changes are made
+* have the budget reset automatically every week and be notified of results
+
+
 ## Design
 
 <p align="center">
