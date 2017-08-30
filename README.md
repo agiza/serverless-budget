@@ -2,6 +2,17 @@
 
 > Automate budget tracking
 
+## Design
+
+Two CSV files live in S3, a template budget file, and the active budget, which is a copy of the template, but partially filled.
+
+Emails (essentially receipts) to a domain registered via Route53 trigger a Lambda that then updates the file on S3 and sends
+an SMS notification. This isn't concurrency-safe, but traffic is low and spread far apart.
+
+Periodically - currently every Saturday at 12AM PST - the budget is reset and a summary notification is sent via SMS.
+
+SMS notifications are sent via SNS.
+
 ## Getting started
 
 ```
@@ -39,6 +50,19 @@ Test budget reset, which is invoked periodically by a CloudWatch event rule.
 $ ./test-budget-reset.sh
 ```
 
+### Checking results
+
+Dump the current budget to stdout:
+
+```
+$ ./cat-budget.sh
+```
+
+Open the file (uses Excel if you have it):
+
+```
+$ ./open-budget.sh
+```
 
 ## Monitoring
 
