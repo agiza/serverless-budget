@@ -5,12 +5,14 @@ import logging
 import sys
 import email
 from datetime import datetime, timezone
+from collections import namedtuple
 from urllib.parse import urljoin
 from multiprocessing.dummy import Pool as ThreadPool
 from botocore.vendored import requests
 
 
 spreadsheet_fields = ['who', 'when', 'what', 'price']
+SpreadsheetRow = namedtuple('SpreadsheetRow', spreadsheet_fields)
 local_spreadsheet_path = '/tmp/{}'.format(os.getenv('spreadsheet_key'))
 allowed_senders = {'v.alvarez312@gmail.com', 'hchaides@gmail.com'}
 MAX_PERIOD_SPEND = 250
@@ -92,7 +94,8 @@ def _get_spreadsheet_rows(record):
             break
     if not price:
         raise Exception('No price found for message_id {}'.format(message_id))
-    return message['From'], _to_local_format(message['Date']), message['Subject'], price
+    return SpreadsheetRow(
+        message['From'], _to_local_format(message['Date']), message['Subject'], price)
 
 
 def _download_spreadsheet():
@@ -121,7 +124,23 @@ def _commit_spreadsheet():
 
 
 def _notify_update(spreadsheet_rows, period_spend):
-    logger.info('Current spend: ${:.2f}'.format(period_spend))
+    def get_message_line(spreadsheet_row):
+        return ', '.join(
+            list(spreadsheet_row[:-1]) + ['${:.2f}'.format(spreadsheet_row[-1])]
+        )
+
+    message_lines = []
+    message_lines.append('Applied budget updates!')
+    message_lines.extend(map(get_message_line, spreadsheet_rows))
+    message_lines.append('Total spend for period is now: ${:.2f}'.format(period_spend))
+    if period_spend >= MAX_PERIOD_SPEND:
+        message_lines.append("You're over limit!")
+    logger.info('Publishing update.')
+    sns.publish(
+        TopicArn=os.getenv('sns_topic_arn'),
+        Message=os.linesep.join(message_lines)
+    )
+    logger.info('Published update.')
 
 
 def _get_period_spend(*spreadsheet_rows):
@@ -139,8 +158,8 @@ def handler(event, *args):
     spreadsheet_rows = thread_pool.map(_get_spreadsheet_rows, records)
     logger.info('Got spreadsheet rows {}'.format(spreadsheet_rows))
     _download_spreadsheet()
-    period_spend = _get_period_spend()
     _update_spreadsheet(*spreadsheet_rows)
+    period_spend = _get_period_spend()
     _commit_spreadsheet()
     _notify_update(spreadsheet_rows, period_spend)
     logger.info('Processed event.')
