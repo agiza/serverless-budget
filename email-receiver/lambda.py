@@ -30,7 +30,7 @@ def get_logger():
 logger = get_logger()
 sns = boto3.client('sns')
 s3  = boto3.client('s3')
-thread_pool = ThreadPool(8)
+thread_pool = ThreadPool(5)
 
 
 def _is_clean(record):
