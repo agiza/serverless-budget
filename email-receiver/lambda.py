@@ -12,6 +12,7 @@ from botocore.vendored import requests
 
 spreadsheet_fields = ['who', 'when', 'what', 'price']
 local_spreadsheet_path = '/tmp/{}'.format(os.getenv('spreadsheet_key'))
+allowed_senders = {'v.alvarez312@gmail.com', 'hchaides@gmail.com'}
 MAX_PERIOD_SPEND = 250
 
 
@@ -34,13 +35,15 @@ thread_pool = ThreadPool(8)
 
 def _is_clean(record):
     receipt_dict  = record['ses']['receipt']
-    keys_to_check = {
+    receipt_keys_to_check = {
         '{}Verdict'.format(key_prefix)
         for key_prefix in {'spf', 'virus', 'spam'}
     }
-    for key in keys_to_check:
+    for key in receipt_keys_to_check:
         if receipt_dict[key]['status'] != 'PASS':
             return False
+    if record['ses']['mail']['source'] not in allowed_senders:
+        return False
     return True
 
 
@@ -105,6 +108,8 @@ def _update_spreadsheet(*spreadsheet_rows):
 
 
 def _commit_spreadsheet():
+    if os.getenv('dry_run'):
+        return
     logger.info('Committing spreadsheet.')
     with open(local_spreadsheet_path, 'rb') as f:
         s3.put_object(
@@ -126,7 +131,7 @@ def _get_period_spend(*spreadsheet_rows):
 
 
 def handler(event, *args):
-    # logger.info('Received event: {}'.format(event))
+    logger.info('Received event: {}'.format(event))
     records = [
         record for record in event['Records']
         if _is_clean(record)
