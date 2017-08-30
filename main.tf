@@ -119,9 +119,8 @@ variable "budget_rule_set_name" {
   default = "budget-tracking"
 }
 
-variable "budget_email" {
-  default = "budget@yangmillstheory.com"
-}
+# comes from shell environment
+variable "budget_email" {}
 
 resource "aws_ses_receipt_rule" "update_budget" {
   name          = "update_budget"

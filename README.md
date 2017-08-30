@@ -9,6 +9,12 @@ $ brew install terraform  # or brew upgrade terraform if you have it
 $ terraform init          # have to do this in the core modules as well
 ```
 
+Need to send the email to send budget updates to (keeping this private):
+
+```
+$ export TF_VAR_budget_email=
+```
+
 ## Development
 
 To make infrastructure changes
