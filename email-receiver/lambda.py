@@ -12,7 +12,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 csv_fields = ['who', 'when', 'what', 'price']
 CSVRow = namedtuple('CSVRow', csv_fields)
 LOCAL_CSV_PATH = '/tmp/{}'.format(os.getenv('csv_key'))
-allowed_senders = {'v.alvarez312@gmail.com', 'hchaides@gmail.com'}
+allowed_senders = os.getenv('allowed_senders').split(',')
 MAX_PERIOD_SPEND = 250
 
 

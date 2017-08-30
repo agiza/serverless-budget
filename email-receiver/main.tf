@@ -34,6 +34,11 @@ variable "lambda_name" {
   default = "email-receiver"
 }
 
+# comma-separated string email addresses
+variable "allowed_senders" {
+  type = "string"
+}
+
 output "lambda_arn" {
   value = "${aws_lambda_function.email_receiver.arn}"
 }
@@ -126,11 +131,12 @@ resource "aws_lambda_function" "email_receiver" {
 
   environment {
     variables = {
-      csv_bucket    = "${var.csv_bucket}"
-      csv_key       = "${var.csv_key}"
-      sns_topic_arn = "${var.sns_topic_arn}"
-      email_bucket  = "${var.email_bucket}"
-      email_prefix  = "${var.email_prefix}"
+      csv_bucket      = "${var.csv_bucket}"
+      csv_key         = "${var.csv_key}"
+      sns_topic_arn   = "${var.sns_topic_arn}"
+      email_bucket    = "${var.email_bucket}"
+      email_prefix    = "${var.email_prefix}"
+      allowed_senders = "${var.allowed_senders}"
     }
   }
 

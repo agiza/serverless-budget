@@ -92,15 +92,16 @@ resource "aws_s3_bucket_object" "csv" {
 
 # lambda email receiver
 module "email_receiver" {
-  bucket        = "${var.bucket}"
-  source        = "./email-receiver"
-  csv_bucket    = "${var.bucket}"
-  csv_key       = "${var.csv_key}"
-  key           = "email_receiver.zip"
-  email_bucket  = "${var.bucket}"
-  email_prefix  = "${var.s3_email_prefix}"
-  sns_topic_arn = "${module.notify.ok_arn}"
-  alarm_arn     = "${module.notify.error_arn}"
+  bucket          = "${var.bucket}"
+  source          = "./email-receiver"
+  csv_bucket      = "${var.bucket}"
+  csv_key         = "${var.csv_key}"
+  key             = "email_receiver.zip"
+  email_bucket    = "${var.bucket}"
+  email_prefix    = "${var.s3_email_prefix}"
+  sns_topic_arn   = "${module.notify.ok_arn}"
+  alarm_arn       = "${module.notify.error_arn}"
+  allowed_senders = "${var.allowed_senders}"
 }
 
 # lambda budget reset
@@ -122,6 +123,8 @@ variable "budget_rule_set_name" {
 
 # comes from shell environment
 variable "budget_email" {}
+
+variable "allowed_senders" {}
 
 resource "aws_ses_receipt_rule" "update_budget" {
   name          = "update_budget"

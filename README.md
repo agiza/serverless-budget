@@ -29,6 +29,7 @@ Need an email address to send email receipts to:
 
 ```
 $ export TF_VAR_budget_email=
+$ export TF_VAR_allowed_senders= # comma-separated email addresses
 ```
 
 ## Development
