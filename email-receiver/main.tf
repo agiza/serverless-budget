@@ -42,9 +42,25 @@ output "lambda_name" {
   value = "${var.lambda_name}"
 }
 
+data "terraform_remote_state" "lambda" {
+  backend = "s3"
+
+  config {
+    profile = "yangmillstheory"
+    bucket  = "yangmillstheory-terraform-states"
+    region  = "us-west-2"
+    key     = "lambda.tfstate"
+  }
+}
+
 resource "aws_sqs_queue" "email_receiver_deadletter" {
   name = "email_receiver_deadletter"
 }
+
+# resource "aws_sqs_queue_policy" "lambda_to_deadletter" {
+#   queue_url = "${aws_sqs_queue.email_receiver_deadletter.id}"
+#   policy    = "${data.aws_iam_policy_document.sqs_publish.json}"
+# }
 
 resource "aws_cloudwatch_metric_alarm" "deadletter_queue_alarm" {
   alarm_name          = "Budget update failed!"
@@ -103,9 +119,20 @@ resource "aws_lambda_function" "email_receiver" {
   }
 
   runtime          = "python3.6"
-  role             = "${aws_iam_role.lambda_basic_execution.arn}"
+  role             = "${data.terraform_remote_state.lambda.basic_execution_role_arn}"
   handler          = "lambda.handler"
   source_code_hash = "${data.archive_file.lambda_zip.output_base64sha256}"
 
   timeout = 300
+}
+
+resource "aws_lambda_permission" "ses_invoke" {
+  function_name = "${var.lambda_name}"
+  action        = "lambda:InvokeFunction"
+  principal     = "ses.amazonaws.com"
+  statement_id  = "AllowInvokeFromSES"
+
+  depends_on = [
+    "aws_lambda_function.email_receiver",
+  ]
 }
