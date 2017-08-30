@@ -68,21 +68,22 @@ resource "aws_iam_policy_attachment" "lambda_to_sns" {
   policy_arn = "${aws_iam_policy.sns_publish.arn}"
 }
 
-data "aws_iam_policy_document" "s3_get_object" {
+data "aws_iam_policy_document" "lambda_to_s3" {
   statement {
     sid = "1"
 
     actions = [
       "s3:GetObject",
+      "s3:PutObject",
     ]
 
     resources = ["arn:aws:s3:::*"]
   }
 }
 
-resource "aws_iam_policy" "s3_get_object" {
-  name   = "s3-get-object"
-  policy = "${data.aws_iam_policy_document.s3_get_object.json}"
+resource "aws_iam_policy" "lambda_to_s3" {
+  name   = "lambda-to-s3"
+  policy = "${data.aws_iam_policy_document.lambda_to_s3.json}"
 }
 
 resource "aws_iam_policy_attachment" "lambda_to_s3" {
@@ -91,7 +92,7 @@ resource "aws_iam_policy_attachment" "lambda_to_s3" {
   ]
 
   name       = "lambda-to-s3"
-  policy_arn = "${aws_iam_policy.s3_get_object.arn}"
+  policy_arn = "${aws_iam_policy.lambda_to_s3.arn}"
 }
 
 data "aws_iam_policy_document" "sqs_publish" {

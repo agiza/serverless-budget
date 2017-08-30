@@ -57,6 +57,7 @@ data "aws_iam_policy_document" "ses_to_s3" {
 
     actions = [
       "s3:GetObject",
+      "s3:PutObject",
     ]
 
     resources = [
