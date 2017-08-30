@@ -81,7 +81,3 @@ Open the file (uses Excel if you have it):
 ```
 $ ./open-budget.sh
 ```
-
-## Monitoring
-
-* [CloudWatch logs](https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logStream:group=/aws/lambda/email-receiver;streamFilter=typeLogStreamPrefix)
