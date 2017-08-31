@@ -13,7 +13,7 @@ csv_fields = ['who', 'when', 'what', 'price']
 CSVRow = namedtuple('CSVRow', csv_fields)
 LOCAL_CSV_PATH = '/tmp/{}'.format(os.getenv('csv_key'))
 allowed_senders = os.getenv('allowed_senders').split(',')
-MAX_PERIOD_SPEND = 250
+MAX_PERIOD_SPEND = float(os.getenv('max_period_spend'))
 
 
 def get_logger():

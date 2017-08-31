@@ -59,13 +59,13 @@ $ terraform apply # writes state to S3
 Test the email receiver.
 
 ```
-$ ./test-email-receiver.sh # this modifies prod
+$ .scripts/test-email-receiver.sh
 ```
 
 Test budget reset, which is invoked periodically by a CloudWatch event rule.
 
 ```
-$ ./test-budget-reset.sh # this does the reset in prod
+$ ./scripts/test-budget-reset.sh
 ```
 
 ### Checking results
@@ -73,11 +73,11 @@ $ ./test-budget-reset.sh # this does the reset in prod
 Dump the current budget to stdout:
 
 ```
-$ ./cat-budget.sh
+$ ./scripts/cat-budget.sh
 ```
 
 Open the file (uses Excel if you have it):
 
 ```
-$ ./open-budget.sh
+$ ./scripts/open-budget.sh
 ```

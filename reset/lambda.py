@@ -6,7 +6,7 @@ import sys
 
 
 local_csv_path = '/tmp/{}'.format(os.getenv('csv_key'))
-MAX_PERIOD_SPEND = 250
+MAX_PERIOD_SPEND = float(os.getenv('max_period_spend'))
 
 
 def get_logger():
@@ -32,7 +32,7 @@ def _download_csv():
 
 def _reset_csv():
     """Overwrites the active budget with an empty budget template."""
-    logger.info('Resetting budget.')
+    logger.info('Resetting budget CSV.')
     bucket = os.getenv('csv_bucket')
     s3.copy(
         {'Bucket': bucket, 'Key': os.getenv('csv_template_key')},
@@ -71,7 +71,8 @@ def handler(*args):
     logger.info('Resetting budget.')
     _download_csv()
     _notify_period_spend()
-    _reset_csv()
+    if not os.getenv('dry_run'):
+        _reset_csv()
     logger.info('Budget reset.')
 
 

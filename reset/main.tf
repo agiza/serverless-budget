@@ -26,6 +26,11 @@ variable "alarm_arn" {
   type = "string"
 }
 
+variable "max_period_spend" {
+  type = "string"
+  default = "250"
+}
+
 variable "lambda_name" {
   default = "budget-reset"
 }
@@ -126,6 +131,7 @@ resource "aws_lambda_function" "budget_reset" {
       csv_key          = "${var.csv_key}"
       csv_template_key = "${var.csv_template_key}"
       sns_topic_arn    = "${var.sns_topic_arn}"
+      max_period_spend = "${var.max_period_spend}"
     }
   }
 

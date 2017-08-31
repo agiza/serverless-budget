@@ -81,6 +81,10 @@ resource "aws_s3_bucket_object" "csv_template" {
   key    = "${var.csv_template_key}"
   source = "${var.csv_key}"
   etag   = "${md5(file("${var.csv_key}"))}"
+
+  lifecycle {
+    ignore_changes = ["*"]
+  }
 }
 
 resource "aws_s3_bucket_object" "csv" {
@@ -88,20 +92,32 @@ resource "aws_s3_bucket_object" "csv" {
   key    = "${var.csv_key}"
   source = "${var.csv_key}"
   etag   = "${md5(file("${var.csv_key}"))}"
+
+  lifecycle {
+    ignore_changes = ["*"]
+  }
+}
+
+# comes from shell environment
+variable "budget_email" {}
+variable "allowed_senders" {}
+variable "max_period_spend" {
+  default = "250"
 }
 
 # lambda email receiver
 module "email_receiver" {
-  bucket          = "${var.bucket}"
-  source          = "./email-receiver"
-  csv_bucket      = "${var.bucket}"
-  csv_key         = "${var.csv_key}"
-  key             = "email_receiver.zip"
-  email_bucket    = "${var.bucket}"
-  email_prefix    = "${var.s3_email_prefix}"
-  sns_topic_arn   = "${module.notify.ok_arn}"
-  alarm_arn       = "${module.notify.error_arn}"
-  allowed_senders = "${var.allowed_senders}"
+  bucket           = "${var.bucket}"
+  source           = "./email-receiver"
+  csv_bucket       = "${var.bucket}"
+  csv_key          = "${var.csv_key}"
+  key              = "email_receiver.zip"
+  email_bucket     = "${var.bucket}"
+  email_prefix     = "${var.s3_email_prefix}"
+  sns_topic_arn    = "${module.notify.ok_arn}"
+  alarm_arn        = "${module.notify.error_arn}"
+  allowed_senders  = "${var.allowed_senders}"
+  max_period_spend = "${var.max_period_spend}"
 }
 
 # lambda budget reset
@@ -114,17 +130,13 @@ module "budget_reset" {
   key              = "budget_reset.zip"
   sns_topic_arn    = "${module.notify.reset_arn}"
   alarm_arn        = "${module.notify.error_arn}"
+  max_period_spend = "${var.max_period_spend}"
 }
 
 # SES receipt rule to store email in S3 and invoke Lambda
 variable "budget_rule_set_name" {
   default = "budget-tracking"
 }
-
-# comes from shell environment
-variable "budget_email" {}
-
-variable "allowed_senders" {}
 
 resource "aws_ses_receipt_rule" "update_budget" {
   name          = "update_budget"

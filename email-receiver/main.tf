@@ -34,6 +34,10 @@ variable "lambda_name" {
   default = "email-receiver"
 }
 
+variable "max_period_spend" {
+  default = "250"
+}
+
 # comma-separated string email addresses
 variable "allowed_senders" {
   type = "string"
@@ -131,12 +135,13 @@ resource "aws_lambda_function" "email_receiver" {
 
   environment {
     variables = {
-      csv_bucket      = "${var.csv_bucket}"
-      csv_key         = "${var.csv_key}"
-      sns_topic_arn   = "${var.sns_topic_arn}"
-      email_bucket    = "${var.email_bucket}"
-      email_prefix    = "${var.email_prefix}"
-      allowed_senders = "${var.allowed_senders}"
+      csv_bucket       = "${var.csv_bucket}"
+      csv_key          = "${var.csv_key}"
+      sns_topic_arn    = "${var.sns_topic_arn}"
+      email_bucket     = "${var.email_bucket}"
+      email_prefix     = "${var.email_prefix}"
+      allowed_senders  = "${var.allowed_senders}"
+      max_period_spend = "${var.max_period_spend}"
     }
   }
 
