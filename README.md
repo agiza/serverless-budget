@@ -1,4 +1,4 @@
-# budget
+# serverless-budget
 
 > Automated budget tracking
 
