@@ -59,13 +59,13 @@ $ terraform apply # writes state to S3
 Test the email receiver.
 
 ```
-$ ./test-email-receiver.sh
+$ ./test-email-receiver.sh # this modifies a row in prod
 ```
 
 Test budget reset, which is invoked periodically by a CloudWatch event rule.
 
 ```
-$ ./test-budget-reset.sh
+$ ./test-budget-reset.sh # this does the reset in prod
 ```
 
 ### Checking results
