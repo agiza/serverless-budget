@@ -31,7 +31,7 @@ variable "alarm_arn" {
 }
 
 variable "lambda_name" {
-  default = "email-receiver"
+  default = "receive"
 }
 
 variable "max_period_spend" {
@@ -111,8 +111,8 @@ resource "aws_cloudwatch_metric_alarm" "deadletter_queue_alarm" {
 
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "email-receiver/lambda.py"
-  output_path = "email-receiver/lambda.zip"
+  source_file = "receive/lambda.py"
+  output_path = "receive/lambda.zip"
 }
 
 # annoying issue here: https://github.com/hashicorp/terraform/issues/15594

@@ -108,7 +108,7 @@ variable "max_period_spend" {
 # lambda email receiver
 module "email_receiver" {
   bucket           = "${var.bucket}"
-  source           = "./email-receiver"
+  source           = "./receive"
   csv_bucket       = "${var.bucket}"
   csv_key          = "${var.csv_key}"
   key              = "email_receiver.zip"

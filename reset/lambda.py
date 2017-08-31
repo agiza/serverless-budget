@@ -5,7 +5,7 @@ import logging
 import sys
 
 
-local_csv_path = '/tmp/{}'.format(os.getenv('csv_key'))
+LOCAL_CSV_PATH   = '/tmp/{}'.format(os.getenv('csv_key'))
 MAX_PERIOD_SPEND = float(os.getenv('max_period_spend'))
 
 
@@ -27,7 +27,7 @@ s3  = boto3.client('s3')
 
 def _download_csv():
     """Downloads the budget csv from S3."""
-    s3.download_file(os.getenv('csv_bucket'), os.getenv('csv_key'), local_csv_path)
+    s3.download_file(os.getenv('csv_bucket'), os.getenv('csv_key'), LOCAL_CSV_PATH)
 
 
 def _reset_csv():
@@ -48,7 +48,7 @@ def _reset_csv():
 
 def _notify_period_spend():
     """Sums all the prices in the price column of the csv and sends a notification with the results."""
-    with open(local_csv_path, newline='') as f:
+    with open(LOCAL_CSV_PATH, newline='') as f:
         prices = [float(row['price']) for row in csv.DictReader(f)]
     period_spend = sum(prices)
     logger.info('Sending summary notification.')
