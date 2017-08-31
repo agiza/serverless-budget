@@ -1,7 +1,7 @@
 #! /bin/bash
 
-export email_prefix=email
-export email_bucket=yangmillstheory-budget
+export email_prefix=budget
+export email_bucket=yangmillstheory-email
 export allowed_senders=v.alvarez312@gmail.com
 export csv_bucket=yangmillstheory-budget
 export csv_key=budget.csv

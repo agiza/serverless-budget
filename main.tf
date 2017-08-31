@@ -13,12 +13,23 @@ terraform {
   }
 }
 
+data "terraform_remote_state" "ses" {
+  backend = "s3"
+
+  config {
+    profile = "yangmillstheory"
+    bucket  = "yangmillstheory-terraform-states"
+    region  = "us-west-2"
+    key     = "ses.tfstate"
+  }
+}
+
 variable "bucket" {
   default = "yangmillstheory-budget"
 }
 
 variable "s3_email_prefix" {
-  default = "email"
+  default = "budget"
 }
 
 variable "csv_key" {
@@ -34,26 +45,9 @@ resource "aws_s3_bucket" "app" {
   bucket = "${var.bucket}"
 }
 
-data "aws_iam_policy_document" "ses_to_s3" {
+data "aws_iam_policy_document" "lambda_to_app_bucket" {
   statement {
     sid = "1"
-
-    actions = [
-      "s3:PutObject",
-    ]
-
-    resources = [
-      "${aws_s3_bucket.app.arn}/*",
-    ]
-
-    principals {
-      type        = "Service"
-      identifiers = ["ses.amazonaws.com"]
-    }
-  }
-
-  statement {
-    sid = "2"
 
     actions = [
       "s3:GetObject",
@@ -68,12 +62,21 @@ data "aws_iam_policy_document" "ses_to_s3" {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
     }
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:sourceArn"
+
+      values = [
+        "${module.email_receiver.lambda_arn}",
+      ]
+    }
   }
 }
 
 resource "aws_s3_bucket_policy" "app_bucket" {
   bucket = "${aws_s3_bucket.app.id}"
-  policy = "${data.aws_iam_policy_document.ses_to_s3.json}"
+  policy = "${data.aws_iam_policy_document.lambda_to_app_bucket.json}"
 }
 
 resource "aws_s3_bucket_object" "csv_template" {
@@ -100,7 +103,9 @@ resource "aws_s3_bucket_object" "csv" {
 
 # comes from shell environment
 variable "budget_email" {}
+
 variable "allowed_senders" {}
+
 variable "max_period_spend" {
   default = "250"
 }
@@ -112,7 +117,7 @@ module "email_receiver" {
   csv_bucket       = "${var.bucket}"
   csv_key          = "${var.csv_key}"
   key              = "email_receiver.zip"
-  email_bucket     = "${var.bucket}"
+  email_bucket     = "${data.terraform_remote_state.ses.email_bucket}"
   email_prefix     = "${var.s3_email_prefix}"
   sns_topic_arn    = "${module.notify.ok_arn}"
   alarm_arn        = "${module.notify.error_arn}"
@@ -133,14 +138,10 @@ module "budget_reset" {
   max_period_spend = "${var.max_period_spend}"
 }
 
-# SES receipt rule to store email in S3 and invoke Lambda
-variable "budget_rule_set_name" {
-  default = "budget-tracking"
-}
-
 resource "aws_ses_receipt_rule" "update_budget" {
   name          = "update_budget"
-  rule_set_name = "${var.budget_rule_set_name}"
+  rule_set_name = "${data.terraform_remote_state.ses.main_receipt_rule_set_name}"
+  after         = "${data.terraform_remote_state.ses.last_receipt_rule_name}"
 
   recipients = [
     "${var.budget_email}",
@@ -151,7 +152,7 @@ resource "aws_ses_receipt_rule" "update_budget" {
   tls_policy   = "Require"
 
   s3_action {
-    bucket_name       = "${var.bucket}"
+    bucket_name       = "${data.terraform_remote_state.ses.email_bucket}"
     object_key_prefix = "${var.s3_email_prefix}"
     position          = 1
   }
@@ -168,16 +169,6 @@ resource "aws_ses_receipt_rule" "update_budget" {
   ]
 }
 
-resource "aws_ses_receipt_rule_set" "budget_tracking" {
-  rule_set_name = "${var.budget_rule_set_name}"
-}
-
-resource "aws_ses_active_receipt_rule_set" "budget_tracking" {
-  rule_set_name = "${var.budget_rule_set_name}"
-  depends_on    = ["aws_ses_receipt_rule_set.budget_tracking"]
-}
-
-# SNS budget-related topics
 module "notify" {
   source = "./notify"
 }

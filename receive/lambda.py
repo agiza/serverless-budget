@@ -111,7 +111,7 @@ def _get_csv_rows(record):
         else:
             break
     if not price:
-        raise Exception('No price found for message_id {}'.format(message_id))
+        raise Exception('No price found for message_id {}'.format(_get_message_id(record)))
     return CSVRow(
         message['From'], _to_local_format(message['Date']), message['Subject'], price)
 

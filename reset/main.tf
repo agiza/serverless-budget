@@ -27,7 +27,7 @@ variable "alarm_arn" {
 }
 
 variable "max_period_spend" {
-  type = "string"
+  type    = "string"
   default = "250"
 }
 
