@@ -20,7 +20,7 @@ def get_logger():
     for handler in logger.handlers:
         logger.removeHandler(handler)
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter('[%(levelname)s] %(module)s:%(lineno)s %(message)s'))
+    handler.setFormatter(logging.Formatter('[%(levelname)s] %(threadName)s %(module)s:%(lineno)s %(message)s'))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     return logger
