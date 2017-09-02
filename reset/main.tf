@@ -148,6 +148,7 @@ resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
   principal     = "events.amazonaws.com"
   action        = "lambda:InvokeFuncion"
   function_name = "${var.lambda_name}"
+  source_arn    = "${aws_cloudwatch_event_rule.every_saturday_7am_pst.arn}"
 
   depends_on = [
     "aws_lambda_function.budget_reset",
@@ -157,7 +158,7 @@ resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
 resource "aws_cloudwatch_event_rule" "every_saturday_7am_pst" {
   name                = "every-saturday-7am-pst"
   description         = "Every Saturday at 7AM PST"
-  schedule_expression = "cron(0 14 ? * SAT *)"
+  schedule_expression = "cron(0 14 ? * SUN *)"
 }
 
 resource "aws_cloudwatch_event_target" "budget_reset" {
