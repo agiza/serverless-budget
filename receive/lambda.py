@@ -64,7 +64,21 @@ def _to_local_format(utc_timestamp):
 
     :param utc_timestamp: UTC formatted time string.
     """
-    dt = datetime.strptime(utc_timestamp, '%a, %d %b %Y %H:%M:%S %z')
+    dt_formats = [
+        '%a, %d %b %Y %H:%M:%S %z',
+        '%a, %d %b %Y %H:%M:%S',
+    ]
+    dt = None
+    for dt_format in dt_formats:
+        try:
+            dt = datetime.strptime(utc_timestamp, dt_format)
+        except Exception as e:
+            logger.info("Couldn't parse {} with format {}".format(utc_timestamp, dt_format))
+        else:
+            break
+    if not dt:
+        logger.info("Couldn't format {} at all; returning it.".format(utc_timestamp))
+        return utc_timestamp
     dt = dt.replace(tzinfo=timezone.utc)
     dt = dt.astimezone(tz=None)
     return dt.strftime('%b %d, %Y %I:%M:%S %p')
@@ -138,8 +152,6 @@ def _update_csv(*csv_rows):
 
 def _commit_csv():
     """Puts the updated downloaded csv back to S3."""
-    if os.getenv('dry_run'):
-        return
     logger.info('Committing csv.')
     with open(LOCAL_CSV_PATH, 'rb') as f:
         s3.put_object(
@@ -159,9 +171,12 @@ def _notify_update(csv_rows, period_spend):
     :param period_spend:     float representing how much has been spent in this period (including csv_rows)
     """
     def get_message_line(csv_row):
-        return ', '.join(
-            list(csv_row[:-1]) + ['${:.2f}'.format(csv_row[-1])]
-        )
+        return ', '.join([
+            csv_row.who,
+            _to_local_format(csv_row.when),
+            csv_row.what,
+            '${:.2f}'.format(csv_row.price),
+        ])
 
     message_lines = list(map(get_message_line, csv_rows))
     message_lines.append('Total spend for period is now: ${:.2f}'.format(period_spend))
@@ -205,12 +220,13 @@ def handler(event, *args):
     logger.info('Got csv rows {}'.format(csv_rows))
     _download_csv()
     _update_csv(*csv_rows)
-    _commit_csv()
+    if not os.getenv('dry_run'):
+        _commit_csv()
     period_spend = _get_period_spend()
     _notify_update(csv_rows, period_spend)
     logger.info('Processed event.')
 
 
 if __name__ == '__main__':
-    event = {'Records': [{'eventSource': 'aws:ses', 'eventVersion': '1.0', 'ses': {'mail': {'timestamp': '2017-08-30T19:16:36.777Z', 'source': 'v.alvarez312@gmail.com', 'messageId': 'oei0v1srkdc7g0kckp27g3t327o94abgh7inci01', 'destination': ['budget@yangmillstheory.com'], 'headersTruncated': False, 'headers': [{'name': 'Return-Path', 'value': '<v.alvarez312@gmail.com>'}, {'name': 'Received', 'value': 'from mail-vk0-f46.google.com (mail-vk0-f46.google.com [209.85.213.46]) by inbound-smtp.us-west-2.amazonaws.com with SMTP id oei0v1srkdc7g0kckp27g3t327o94abgh7inci01 for budget@yangmillstheory.com; Wed, 30 Aug 2017 19:16:36 +0000 (UTC)'}, {'name': 'X-SES-Spam-Verdict', 'value': 'PASS'}, {'name': 'X-SES-Virus-Verdict', 'value': 'PASS'}, {'name': 'Received-SPF', 'value': 'pass (spfCheck: domain of _spf.google.com designates 209.85.213.46 as permitted sender) client-ip=209.85.213.46; envelope-from=v.alvarez312@gmail.com; helo=mail-vk0-f46.google.com;'}, {'name': 'Authentication-Results', 'value': 'amazonses.com; spf=pass (spfCheck: domain of _spf.google.com designates 209.85.213.46 as permitted sender) client-ip=209.85.213.46; envelope-from=v.alvarez312@gmail.com; helo=mail-vk0-f46.google.com; dkim=pass header.i=@gmail.com;'}, {'name': 'X-SES-RECEIPT', 'value': 'AEFBQUFBQUFBQUFHMVJjNWQxZ3cwd2x3WWxUYzJMSkZmSGNpT2MzUVhzYzJkU0ZVYStUcTRtVXhjSHAvY2dRTnFvSVF1TGFnRTQ2QjRScGZxSXBDcHpwc2VEOWxUdTAxekMvK0xNQityTGZGc29uRDliaVQwMit6bFpsRGRhODJCaVV1MEh4ZSs0cFpTaHVSbmsrbTdIcy92L1k1eU1aWlBkUWNaNmszL0hndWpQYjRDVHpobG5FZVNWZzVDeXRhNGpwZzhBT09HRyt4RkJCaGtwZGtpOEEzMFN3VVdFNytqU2RkOFhuQ0FjVU5lTmxYYlhGelhLYVZsWFZENm9rUkZUdmJBZXVpdmxucU93QVYzRm5ocUtqbS9tZE9LL1ZIeQ=='}, {'name': 'X-SES-DKIM-SIGNATURE', 'value': 'v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=hsbnp7p3ensaochzwyq5wwmceodymuwv; d=amazonses.com; t=1504120597; h=X-SES-RECEIPT:MIME-Version:From:Date:Message-ID:Subject:To:Content-Type; bh=SEoUWjBEMpZ0/r4sgepX5xHgzXUOZcMlNJRetI5s6Is=; b=JBUQ3Yp9G4QL6X0K9aLm9ppuIW1+KWdc2x/XOun8LnlqlYJ8hHdEoDJ97fVE5o4T I4D6QqLfLujZhG0lftwKAZoJCkMFJYQTKjUB09dXsfJ35Y8VoGCOhgFmwvfp9b6SnAZ tEdOCX6SWm+D/4n8rwgcEgH1ocfKJ0UCTBz8iFR0='}, {'name': 'Received', 'value': 'by mail-vk0-f46.google.com with SMTP id s199so20113906vke.1 for <budget@yangmillstheory.com>; Wed, 30 Aug 2017 12:16:36 -0700 (PDT)'}, {'name': 'DKIM-Signature', 'value': 'v=1; a=rsa-sha256; c=relaxed/relaxed; d=gmail.com; s=20161025; h=mime-version:from:date:message-id:subject:to; bh=SEoUWjBEMpZ0/r4sgepX5xHgzXUOZcMlNJRetI5s6Is=; b=H6eaE15oF8Xp51N1bVMmjf2SzWXRtbygv2pOZnliya+9z2ykrgzDdzg8m4m9mjIdGq7J3QEI5ZCWE2F/Soc2Ql1gw0ZXNTagQdmFaUKiJwtUc+sAIbVsaUfrYTI1reRWt6+M1jCkYCTdKsTjhKyEjBG+EFh9a7ARRL9hV4e2FecYnhzfYvSVfcswns/h+J61uP3pflwo8kGxig+jhHpDFqPYdw6rH0G4GP58Xp/ReMor68Cm//+uJRMvKBZFYC8ko6rY0jvdRchIpm/Gpt1Of4Yz04xbHRmmogOM+iQER0X7ZpmN1tvh+RHm7jHzZTpqF3gdEZUClId4TnvkrrWsng=='}, {'name': 'X-Google-DKIM-Signature', 'value': 'v=1; a=rsa-sha256; c=relaxed/relaxed; d=1e100.net; s=20161025; h=x-gm-message-state:mime-version:from:date:message-id:subject:to; bh=SEoUWjBEMpZ0/r4sgepX5xHgzXUOZcMlNJRetI5s6Is=; b=CEgz4tmqY71J18YTufn26E+BO4YyLCxrZhmY/uV0hKRDaa2n/nR5+kzmwyfkWHrB6L uHDfFtSleWNea5ZzD1SUNXG07JS+z9QXDmrnhaIuBKQa84/ETFUIZawQg8NSdTvdwU6N aa+i95R8O28XP3XmeNUcpSQEXutZ+flufiVx2GOCEqx1TZJ5pYXNWzijirhwO+xfhvFY RXUrcujZhmkU79AXq6FpOIyZPhpEs+Fgvw9PLZuEi+LrVc+32vuOs4R/MRoRKjR+aIqF DBe4vSOOieoql4mZO9rYm3XrXxTBFRp9WK2GBXA+fJ1sBCOyF7YauKhpT98j4MC003Ur +EMg=='}, {'name': 'X-Gm-Message-State', 'value': 'AHPjjUh1QfULxLASjeOCN49Zvb51+r8nlHA/ZQWlYneDozTzds7O6+bA G5ZZzmAPgFwSee+1DdAWJHDrXpYfEA=='}, {'name': 'X-Received', 'value': 'by 10.31.174.14 with SMTP id x14mr1559427vke.169.1504120595483; Wed, 30 Aug 2017 12:16:35 -0700 (PDT)'}, {'name': 'MIME-Version', 'value': '1.0'}, {'name': 'From', 'value': 'Victor Alvarez <v.alvarez312@gmail.com>'}, {'name': 'Date', 'value': 'Wed, 30 Aug 2017 19:16:25 +0000'}, {'name': 'Message-ID', 'value': '<CACLERZJ6+rotTdLK+-NZ8tUdczYD0MvZ_Tc2vM1iZK=K4bz2_w@mail.gmail.com>'}, {'name': 'Subject', 'value': 'Ballard market'}, {'name': 'To', 'value': '"budget@yangmillstheory.com" <budget@yangmillstheory.com>'}, {'name': 'Content-Type', 'value': 'multipart/alternative; boundary="001a1143fbdccb10190557fd5dae"'}], 'commonHeaders': {'returnPath': 'v.alvarez312@gmail.com', 'from': ['Victor Alvarez <v.alvarez312@gmail.com>'], 'date': 'Wed, 30 Aug 2017 19:16:25 +0000', 'to': ['"budget@yangmillstheory.com" <budget@yangmillstheory.com>'], 'messageId': '<CACLERZJ6+rotTdLK+-NZ8tUdczYD0MvZ_Tc2vM1iZK=K4bz2_w@mail.gmail.com>', 'subject': 'Ballard market'}}, 'receipt': {'timestamp': '2017-08-30T19:16:36.777Z', 'processingTimeMillis': 500, 'recipients': ['budget@yangmillstheory.com'], 'spamVerdict': {'status': 'PASS'}, 'virusVerdict': {'status': 'PASS'}, 'spfVerdict': {'status': 'PASS'}, 'dkimVerdict': {'status': 'PASS'}, 'action': {'type': 'Lambda', 'functionArn': 'arn:aws:lambda:us-west-2:079529114411:function:receive', 'invocationType': 'Event'}}}}]}
+    event = {'Records': [{'eventSource': 'aws:ses', 'eventVersion': '1.0', 'ses': {'mail': {'timestamp': '2017-09-02T04:43:30.756Z', 'source': 'v.alvarez312@gmail.com', 'messageId': '0pg0k9ut54o0ar4305111hucc20u6b01mmq2e681', 'destination': ['budget@yangmillstheory.com'], 'headersTruncated': False, 'headers': [{'name': 'Return-Path', 'value': '<v.alvarez312@gmail.com>'}, {'name': 'Received', 'value': 'from mail-vk0-f48.google.com (mail-vk0-f48.google.com [209.85.213.48]) by inbound-smtp.us-west-2.amazonaws.com with SMTP id 0pg0k9ut54o0ar4305111hucc20u6b01mmq2e681 for budget@yangmillstheory.com; Sat, 02 Sep 2017 04:43:30 +0000 (UTC)'}, {'name': 'X-SES-Spam-Verdict', 'value': 'PASS'}, {'name': 'X-SES-Virus-Verdict', 'value': 'PASS'}, {'name': 'Received-SPF', 'value': 'pass (spfCheck: domain of _spf.google.com designates 209.85.213.48 as permitted sender) client-ip=209.85.213.48; envelope-from=v.alvarez312@gmail.com; helo=mail-vk0-f48.google.com;'}, {'name': 'Authentication-Results', 'value': 'amazonses.com; spf=pass (spfCheck: domain of _spf.google.com designates 209.85.213.48 as permitted sender) client-ip=209.85.213.48; envelope-from=v.alvarez312@gmail.com; helo=mail-vk0-f48.google.com; dkim=pass header.i=@gmail.com;'}, {'name': 'X-SES-RECEIPT', 'value': 'AEFBQUFBQUFBQUFHVWVmUzM0NW82azV5d3ozUm92UGtIVGZEaG1EMTVKejRtazJtTEV2TldaMGd6dTlIMG93Y05mUjRsVFFsTFdXbnNSNndXQjVDL1puWVZLdWZYUm5sc0pVTFpZQVVla1hHVFYvU2FUcjF0L3Y0em1FQlpFcUwvTDVtTTBabk4raktuNktaa1N0Q0FBNXNWbmUySkhnb0VmcW1XQzNtdGExR05jYzhJZ2hpZlNzbTgvR0ZsQ0paaVd2RTVNVUl4RXlTVktYRzFYY21YZzBSaS83NGtEa0VLUDVORzM1cVNUTnNjcjA4ZVQ4L3lFNGpiODdQV0sxTlMxaGQ2aDJwbVNiNzRJUzRwUE5XZmVOZ25lNkFxOXdBeg=='}, {'name': 'X-SES-DKIM-SIGNATURE', 'value': 'v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=hsbnp7p3ensaochzwyq5wwmceodymuwv; d=amazonses.com; t=1504327411; h=X-SES-RECEIPT:MIME-Version:From:Date:Message-ID:Subject:To:Content-Type; bh=7aM3OTCcW1914AFXnCAiQ7pW9txotzS8XxJNMX3NHW0=; b=CbDtQ3ji6CnA/9uvvbs+mP+fhx7G0UgvFxEci53TnEszJmPogr3J5GKWCSDyeAgZ KnKniKL75kiI/64mXRmmUkYOrQ8WnA7ZhBqcweWIgByb8RIHuR8n6Mxzs7gnOp2Hvkj 0sZmVsfSj6LoVnNUX9cDxigGImvDx9qhNxKZifzA='}, {'name': 'Received', 'value': 'by mail-vk0-f48.google.com with SMTP id q189so5046750vke.4 for <budget@yangmillstheory.com>; Fri, 01 Sep 2017 21:43:30 -0700 (PDT)'}, {'name': 'DKIM-Signature', 'value': 'v=1; a=rsa-sha256; c=relaxed/relaxed; d=gmail.com; s=20161025; h=mime-version:from:date:message-id:subject:to; bh=7aM3OTCcW1914AFXnCAiQ7pW9txotzS8XxJNMX3NHW0=; b=slpcolxtR+yEN7JERwZImbwBhjQT8uJA6KmFpWHhi26aPXphHoJXoKTL4Ac+wCBzJvN/BA8SSVCZFe+ZWXNW91ujZT5f0zSHXk55v5IHIjX7ntSCXIEmswqvQ2/ZBlfMSYmkMMo0TCh4Zw4gYYI8mMM6zR77ODkschVG8BT3i+cq49KBz8NmcPqcll70fDyD/ms1RNg/k3rMrcF9fZPopJSRM/jG5BVpSpbwHi8AJ0OCteccogF8QTMXXt48ALaFdajNc+pxw5EEuTPKB0faWxpR6mEelIPwOBFyxypTN2NavWDiqyaxOdnl6LH3y9vY8+K3i+0cYzTtoxNWZDHwmA=='}, {'name': 'X-Google-DKIM-Signature', 'value': 'v=1; a=rsa-sha256; c=relaxed/relaxed; d=1e100.net; s=20161025; h=x-gm-message-state:mime-version:from:date:message-id:subject:to; bh=7aM3OTCcW1914AFXnCAiQ7pW9txotzS8XxJNMX3NHW0=; b=mWgcqyleYM6PkV/M+5rSAbq3RmNDDvjhRvo6to1AYzbjt4WMpyVF6ap20o3TqY9sMS UouvARhd/yA5ZjnMNbAxuRbwMdbyEX4cFW9w7n0GL8YimstMzNQSA6SsUlvaKl2UyBIR Lt0+ZPG/daGuolqdzPPNeZNoViX6xg+rya6LhnekwG/qCoeA3EkATM15gSIhtJksDBF5 nVEiE/HYrF3XjPAtOqe79iIzLm19Bciz0Pbh6bn4YjHDw6Zd3Uq3boEP5eT641ZDKodI OxmwY0iW9zFxQbwFJvL64z7bUN9sFVh+RKAL65b3gdIPGhf0X/XHD9rGQ89B8ljZFWQB ZCZw=='}, {'name': 'X-Gm-Message-State', 'value': 'AHPjjUgrTxnke09WU3p6BdYhLUJ9Mq+Omu7LWMZkU/bHNtC5vR/gRP5N QpY44hspcKct8/hz1yLmHe1S0Z6ppQ=='}, {'name': 'X-Google-Smtp-Source', 'value': 'ADKCNb7Xv4C6Q4oQaiDKxGsEJbHP9ghwOU78+f+e9pfgAgIrPEk6/+nnKWydOUZGITcf/enEP7LGCeEhQ0+McrsZvmI='}, {'name': 'X-Received', 'value': 'by 10.31.92.151 with SMTP id q145mr2598469vkb.39.1504327409477; Fri, 01 Sep 2017 21:43:29 -0700 (PDT)'}, {'name': 'MIME-Version', 'value': '1.0'}, {'name': 'From', 'value': 'Victor Alvarez <v.alvarez312@gmail.com>'}, {'name': 'Date', 'value': 'Sat, 02 Sep 2017 04:43:19 +0000'}, {'name': 'Message-ID', 'value': '<CACLERZ+Ri-7hUNG0KwMbmK=sRmn7zJPJ=YVJ1_Yr3YU1Z0QLZg@mail.gmail.com>'}, {'name': 'Subject', 'value': 'Juice'}, {'name': 'To', 'value': 'budget@yangmillstheory.com'}, {'name': 'Content-Type', 'value': 'multipart/alternative; boundary="001a114e578ede2e6605582d84e5"'}], 'commonHeaders': {'returnPath': 'v.alvarez312@gmail.com', 'from': ['Victor Alvarez <v.alvarez312@gmail.com>'], 'date': 'Sat, 02 Sep 2017 04:43:19 +0000', 'to': ['budget@yangmillstheory.com'], 'messageId': '<CACLERZ+Ri-7hUNG0KwMbmK=sRmn7zJPJ=YVJ1_Yr3YU1Z0QLZg@mail.gmail.com>', 'subject': 'Juice'}}, 'receipt': {'timestamp': '2017-09-02T04:43:30.756Z', 'processingTimeMillis': 943, 'recipients': ['budget@yangmillstheory.com'], 'spamVerdict': {'status': 'PASS'}, 'virusVerdict': {'status': 'PASS'}, 'spfVerdict': {'status': 'PASS'}, 'dkimVerdict': {'status': 'PASS'}, 'action': {'type': 'Lambda', 'functionArn': 'arn:aws:lambda:us-west-2:079529114411:function:receive', 'invocationType': 'Event'}}}}]}
     handler(event)

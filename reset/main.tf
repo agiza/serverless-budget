@@ -154,13 +154,13 @@ resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
   ]
 }
 
-resource "aws_cloudwatch_event_rule" "every_saturday_12am_pst" {
-  name                = "every-saturday-12am-pst"
-  description         = "Every Saturday at 12AM PST"
-  schedule_expression = "cron(0 7 ? * SAT *)"
+resource "aws_cloudwatch_event_rule" "every_saturday_7am_pst" {
+  name                = "every-saturday-7am-pst"
+  description         = "Every Saturday at 7AM PST"
+  schedule_expression = "cron(0 14 ? * SAT *)"
 }
 
 resource "aws_cloudwatch_event_target" "budget_reset" {
-  rule = "${aws_cloudwatch_event_rule.every_saturday_12am_pst.name}"
+  rule = "${aws_cloudwatch_event_rule.every_saturday_7am_pst.name}"
   arn  = "${aws_lambda_function.budget_reset.arn}"
 }
