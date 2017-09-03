@@ -143,6 +143,9 @@ resource "aws_lambda_function" "budget_reset" {
   timeout = 300
 }
 
+# note that I still had to manually enable the trigger. this isn't good.
+#
+# https://us-west-2.console.aws.amazon.com/lambda/home?region=us-west-2#/functions/budget-reset?tab=triggers
 resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
   statement_id  = "AllowInvokeFromCloudWatch"
   principal     = "events.amazonaws.com"
@@ -151,14 +154,14 @@ resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
   source_arn    = "${aws_cloudwatch_event_rule.every_sunday_7am_pst.arn}"
 
   depends_on = [
-    "aws_lambda_function.budget_reset",
+    "aws_lambda_function.budget_reset"
   ]
 }
 
 resource "aws_cloudwatch_event_rule" "every_sunday_7am_pst" {
   name                = "every-sunday-7am-pst"
   description         = "Every Sunday at 7AM PST"
-  schedule_expression = "cron(0 16 ? * SUN *)"
+  schedule_expression = "cron(0 14 ? * SUN *)"
 }
 
 resource "aws_cloudwatch_event_target" "budget_reset" {
