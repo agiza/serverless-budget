@@ -149,7 +149,7 @@ resource "aws_lambda_function" "budget_reset" {
 resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
   statement_id  = "AllowInvokeFromCloudWatch"
   principal     = "events.amazonaws.com"
-  action        = "lambda:InvokeFuncion"
+  action        = "lambda:InvokeFunction"
   function_name = "${var.lambda_name}"
   source_arn    = "${aws_cloudwatch_event_rule.every_sunday_7am_pst.arn}"
 
