@@ -161,7 +161,7 @@ resource "aws_lambda_permission" "allow_cloudwatch_invoke" {
 resource "aws_cloudwatch_event_rule" "every_sunday_7am_pst" {
   name                = "every-sunday-7am-pst"
   description         = "Every Sunday at 7AM PST"
-  schedule_expression = "cron(0 14 ? * SUN *)"
+  schedule_expression = "cron(0 14 ? * SAT *)"
 }
 
 resource "aws_cloudwatch_event_target" "budget_reset" {

@@ -102,9 +102,13 @@ resource "aws_s3_bucket_object" "csv" {
 }
 
 # comes from shell environment
-variable "budget_email" {}
+variable "budget_email" {
+  default = "budget@yangmillstheory.com"
+}
 
-variable "allowed_senders" {}
+variable "allowed_senders" {
+  default = "v.alvarez312@gmail.com,hchaides@gmail.com"
+}
 
 variable "max_period_spend" {
   default = "250"
