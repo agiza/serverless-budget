@@ -58,7 +58,7 @@ def _notify_period_spend():
     if delta < 0:
         message_lines.append('You went ${:.2f} over budget!'.format(delta))
     else:
-        message_lines.append('Made it with ${:.2f} savings. Way to go!'.format(delta))
+        message_lines.append('Made it with ${:.2f} savings. Way to go!'.format(-delta))
     sns.publish(
         TopicArn=os.getenv('sns_topic_arn'),
         Message=os.linesep.join(message_lines)
