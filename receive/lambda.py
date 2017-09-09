@@ -121,6 +121,7 @@ def _get_csv_rows(record):
         try:
             price = float(price)
         except Exception as e:
+            price = None
             logger.info("Couldn't get price: {}".format(e))
         else:
             break
