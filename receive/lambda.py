@@ -108,7 +108,6 @@ def _get_csv_rows(record):
     """
     # read everything into memory, it's expected to be quite small
     message = email.message_from_bytes(_get_email_bytes(record))
-    price = None
     for part in message.walk():
         # this algorithm is so fragile; see
         #
@@ -121,14 +120,10 @@ def _get_csv_rows(record):
         try:
             price = float(price)
         except Exception as e:
-            price = None
             logger.info("Couldn't get price: {}".format(e))
         else:
-            break
-    if not price:
-        raise Exception('No price found for message_id {}'.format(_get_message_id(record)))
-    return CSVRow(
-        message['From'], _to_local_format(message['Date']), message['Subject'], price)
+            return CSVRow(message['From'], _to_local_format(message['Date']), message['Subject'], price)
+    raise Exception('No price found for message_id {}'.format(_get_message_id(record)))
 
 
 def _download_csv():
