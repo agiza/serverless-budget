@@ -86,45 +86,26 @@ data "aws_iam_policy_document" "sns_to_s3" {
     sid = "1"
 
     actions = [
-      "s3:GetObject",
-      "s3:PutObject",
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:PutMetricFilter",
+      "logs:PutRetentionPolicy"
     ]
 
     resources = [
-      "${aws_s3_bucket.sns_logs.arn}/*",
+      "${aws_s3_bucket.logs.arn}",
+      "${aws_s3_bucket.logs.arn}/*",
     ]
-
-    principals {
-      type        = "Service"
-      identifiers = ["sns.amazonaws.com"]
-    }
   }
 }
 
 resource "aws_s3_bucket_policy" "sns_logs" {
-  bucket = "${aws_s3_bucket.sns_logs.id}"
+  bucket = "${aws_s3_bucket.app.id}"
   policy = "${data.aws_iam_policy_document.sns_to_s3.json}"
 }
 
-data "aws_iam_policy_document" "sns_assume_role" {
-  statement {
-    sid = "1"
-
-    actions = ["sts:AssumeRole"]
-
-    principals {
-      type = "Service"
-      identifiers = ["sns.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role" "cloudwatch_logger" {
-  name = "CloudWatchLogger"
-  assume_role_policy = "${data.aws_iam_policy_document.sns_assume_role.json}"
-}
-
-data "aws_iam_policy_document" "sns_to_cloudwatch" {
+data "aws_iam_policy_document" "sns_to_s3" {
   statement {
     sid = "1"
 
@@ -142,14 +123,6 @@ data "aws_iam_policy_document" "sns_to_cloudwatch" {
   }
 }
 
-resource "aws_iam_policy" "sns_to_cloudwatch" {
-  name = "SNSToCloudWatch"
-  policy = "${data.aws_iam_policy_document.sns_to_cloudwatch.json}"
+resource "aws_iam_role" "cloudwatch_logger" {
+  assume_role_policy = "${data.aws_iam_policy_document.instance-assume-role-policy.json}"
 }
-
-# this is done via the AWS console
-#
-# resource "aws_iam_policy_attachment" "cloudwatch_logger" {
-#   name = "${aws_iam_role.cloudwatch_logger.name}"
-#   policy_arn = "${aws_iam_policy.sns_to_cloudwatch.arn}"
-# }
