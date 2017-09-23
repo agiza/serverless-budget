@@ -178,7 +178,7 @@ def _notify_update(csv_rows, period_spend):
     message_lines.append('Total spend for period is now: ${:.2f}'.format(period_spend))
     delta = MAX_PERIOD_SPEND - period_spend
     if delta < 0:
-        message_lines.append('You went ${:.2f} over budget!'.format(-delta))
+        message_lines.append('You are ${:.2f} over budget!'.format(-delta))
     else:
         message_lines.append('You have ${:.2f} remaining for the period.'.format(delta))
     message = os.linesep.join(message_lines)
