@@ -27,10 +27,22 @@ Emails (essentially receipts) to a domain registered via Route53 trigger a Lambd
 
 Using S3 as a data store isn't concurrency-safe, but traffic is low and spread far apart. Also, we don't need to persist the data for more than a given period (currently one week).
 
-Periodically (currently every Saturday at 12AM PST) the budget is reset and a summary notification is sent via SMS.
+Periodically (currently every Monday at 7AM PST) the budget is reset and a summary notification is sent via SMS.
 
 
 ## Getting started
+
+Make sure your AWS credentials are configured. The code assumes the existence of a `yangmillstheory` IAM user, so:
+
+```
+🤔 ~/c/budget (9cb6bd9)|master⚡
+± [i]: cat ~/.aws/credentials
+[yangmillstheory]
+aws_access_key_id = <snip>
+aws_secret_access_key = <snip>
+```
+
+Install `terraform`:
 
 ```
 $ brew install terraform  # or brew upgrade terraform if you have it
