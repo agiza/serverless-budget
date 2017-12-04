@@ -107,7 +107,7 @@ variable "budget_email" {
 }
 
 variable "allowed_senders" {
-  default = "v.alvarez312@gmail.com,hchaides@gmail.com"
+  default = "v.alvarez312@gmail.com"
 }
 
 variable "max_period_spend" {
