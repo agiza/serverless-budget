@@ -85,9 +85,9 @@ def _send_csv_email():
     with open(LOCAL_CSV_PATH, 'rb') as f:
         # yes, read all the bytes into memory; the file is small
         attachment = MIMEApplication(f.read())
-        attachment.add_header(
-            'Content-Disposition', 'attachment', filename=BUDGET_FILE_NAME)
-        message.attach(attachment)
+    attachment.add_header(
+        'Content-Disposition', 'attachment', filename=BUDGET_FILE_NAME)
+    message.attach(attachment)
     logger.info('Sending CSV file to {}'.format(RESET_RECIPIENTS))
     ses.send_raw_email(
         Source=message['From'],
