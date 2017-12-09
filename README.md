@@ -22,25 +22,16 @@ I think this approach is a bit simpler, as now I can
 
 Two CSV files live in S3, a template budget file, and the active budget, which is a copy of the template, but partially filled.
 
-
 Emails (essentially receipts) to a domain registered via Route53 trigger a Lambda that then updates the file on S3 and sends an SMS notification.
 
 Using S3 as a data store isn't concurrency-safe, but traffic is low and spread far apart. Also, we don't need to persist the data for more than a given period (currently one week).
 
-Periodically (currently every Monday at 7AM PST) the budget is reset and a summary notification is sent via SMS.
+Periodically the budget is reset and a summary notification is sent via SMS.
 
 
 ## Getting started
 
-Make sure your AWS credentials are configured. The code assumes the existence of a `yangmillstheory` IAM user, so:
-
-```
-🤔 ~/c/budget (9cb6bd9)|master⚡
-± [i]: cat ~/.aws/credentials
-[yangmillstheory]
-aws_access_key_id = <snip>
-aws_secret_access_key = <snip>
-```
+Make sure your credentials are configured.
 
 Install `terraform`:
 
@@ -52,8 +43,8 @@ $ terraform init          # have to do this in the core modules as well
 Need an email address to send email receipts to:
 
 ```
-$ export TF_VAR_budget_email=
 $ export TF_VAR_allowed_senders= # comma-separated email addresses
+$ export TF_VAR_reset_recipients= # comma-separated email addresses
 ```
 
 ## Development
