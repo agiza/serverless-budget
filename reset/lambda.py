@@ -3,9 +3,13 @@ import csv
 import os
 import logging
 import sys
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 
 
-LOCAL_CSV_PATH = '/tmp/{}'.format(os.getenv('csv_key'))
+BUDGET_FILE_NAME = os.environ['csv_key']
+LOCAL_CSV_PATH = '/tmp/{}'.format(BUDGET_FILE_NAME)
+RESET_RECIPIENTS = os.getenv('reset_recipients').split(',')
 MAX_PERIOD_SPEND = float(os.getenv('max_period_spend'))
 
 
@@ -23,6 +27,7 @@ def get_logger():
 
 logger = get_logger()
 sns = boto3.client('sns')
+ses = boto3.client('ses')
 s3 = boto3.client('s3')
 
 
@@ -72,11 +77,35 @@ def _notify_period_spend():
     logger.info('Sent summary notification.')
 
 
+def _send_csv_email():
+    """Sends the downloaded CSV file to a list of recipients."""
+    message = MIMEMultipart()
+    message['Subject'] = 'Budget Period Log'
+    message['From'] = 'budget@yangmillstheory.com'
+    with open(LOCAL_CSV_PATH, 'rb') as f:
+        # yes, read all the bytes into memory; the file is small
+        attachment = MIMEApplication(f.read())
+        attachment.add_header(
+            'Content-Disposition', 'attachment', filename=BUDGET_FILE_NAME)
+        message.attach(attachment)
+    logger.info('Sending CSV file to {}'.format(RESET_RECIPIENTS))
+    ses.send_raw_email(
+        Source=message['From'],
+        Destinations=RESET_RECIPIENTS,
+        RawMessage={
+            'Data': message.as_string(),
+        })
+    logger.info('Email sent.')
+
+
 def handler(*args):
-    """Sends a summary for the current budget, then resets the template."""
+    """Sends a summary for the current budget via SMS and email, then resets
+    the template.
+    """
     logger.info('Resetting budget.')
     _download_csv()
     _notify_period_spend()
+    _send_csv_email()
     if not os.getenv('dry_run'):
         _reset_csv()
     logger.info('Budget reset.')
