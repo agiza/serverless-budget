@@ -40,12 +40,14 @@ $ brew install terraform  # or brew upgrade terraform if you have it
 $ terraform init          # have to do this in the core modules as well
 ```
 
-Need an email address to send email receipts to:
+Need an email address to send email receipts to; make sure to
 
 ```
 $ export TF_VAR_allowed_senders= # comma-separated email addresses
 $ export TF_VAR_reset_recipients= # comma-separated email addresses
 ```
+
+before `terraform plan` and `terraform apply`.
 
 ## Development
 
