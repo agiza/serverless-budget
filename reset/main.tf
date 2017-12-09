@@ -35,6 +35,11 @@ variable "lambda_name" {
   default = "budget-reset"
 }
 
+# comma-separated string email addresses
+variable "reset_recipients" {
+  type = "string"
+}
+
 output "lambda_arn" {
   value = "${aws_lambda_function.budget_reset.arn}"
 }
@@ -132,6 +137,7 @@ resource "aws_lambda_function" "budget_reset" {
       csv_template_key = "${var.csv_template_key}"
       sns_topic_arn    = "${var.sns_topic_arn}"
       max_period_spend = "${var.max_period_spend}"
+      reset_recipients = "${var.reset_recipients}"
     }
   }
 

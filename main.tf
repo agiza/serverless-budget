@@ -40,6 +40,16 @@ variable "csv_template_key" {
   default = "budget.csv.tmpl"
 }
 
+# comma-separated string email addresses
+variable "reset_recipients" {
+  type = "string"
+}
+
+# comma-separated string email addresses
+variable "allowed_senders" {
+  type = "string"
+}
+
 # S3 bucket for entire application
 resource "aws_s3_bucket" "app" {
   bucket = "${var.bucket}"
@@ -106,10 +116,6 @@ variable "budget_email" {
   default = "budget@yangmillstheory.com"
 }
 
-variable "allowed_senders" {
-  default = "v.alvarez312@gmail.com"
-}
-
 variable "max_period_spend" {
   default = "250"
 }
@@ -140,6 +146,7 @@ module "budget_reset" {
   sns_topic_arn    = "${module.notify.reset_arn}"
   alarm_arn        = "${module.notify.error_arn}"
   max_period_spend = "${var.max_period_spend}"
+  reset_recipients = "${var.reset_recipients}"
 }
 
 resource "aws_ses_receipt_rule" "update_budget" {
