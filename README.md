@@ -3,24 +3,7 @@
 > Automated budget tracking
 
 
-## Why
-
-[Read this blog post.](https://blog.yangmillstheory.com/posts/serverless-budget-tracking/)
-
-## Design
-
-<p align="center">
-  <img src="./budget.png">
-</p>
-
-Two CSV files live in S3, a template budget file, and the active budget, which is a copy of the template, but partially filled.
-
-Emails (essentially receipts) to a domain registered via Route53 trigger a Lambda that then updates the file on S3 and sends an SMS notification.
-
-**Using S3 as a data store isn't concurrency-safe, but traffic is low and spread far apart. Also, we don't need to persist the data for more than a given period (currently one week). Keep it simple.**
-
-Periodically the active budget is reset, a summary notification is sent via SMS, and a copy of the CSV is sent via email.
-
+[Read this blog post for motivation and design.](https://blog.yangmillstheory.com/posts/serverless-budget-tracking/)
 
 ## Getting started
 
