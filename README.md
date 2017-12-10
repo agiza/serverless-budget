@@ -44,6 +44,7 @@ $ terraform init
 Need email addresses to send email receipts from and send period results to:
 
 ```
+$ export TF_VAR_budget_email=     # where to send receipts to
 $ export TF_VAR_allowed_senders=  # comma-separated email addresses
 $ export TF_VAR_reset_recipients= # comma-separated email addresses
 ```

@@ -111,9 +111,8 @@ resource "aws_s3_bucket_object" "csv" {
   }
 }
 
-# comes from shell environment
 variable "budget_email" {
-  default = "budget@yangmillstheory.com"
+  type = "string"
 }
 
 variable "max_period_spend" {
