@@ -5,15 +5,7 @@
 
 ## Why
 
-I got tired of saving receipts and manually updating a spreadsheet, and I didn't like the mobile interface for Google Sheets. We
-also found other personal finance apps to be too complex or inaccurate.
-
-I think this approach is a bit simpler, as now we can
-
-* send a simple receipt email to commit an update
-* be notified and notify others when money is spent
-* have the budget reset periodically week and be notified of results
-
+[Read this blog post.](https://blog.yangmillstheory.com/posts/serverless-budget-tracking/)
 
 ## Design
 
