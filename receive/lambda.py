@@ -75,7 +75,7 @@ def _to_local_format(timestamp):
         '%a, %d %b %Y %H:%M:%S %z': True,
         '%a, %d %b %Y %H:%M:%S': True,
     }
-    dt = None
+    dt, should_convert = None, None
     for dt_format in dt_format_to_convert:
         try:
             dt = datetime.strptime(timestamp, dt_format)
@@ -83,11 +83,12 @@ def _to_local_format(timestamp):
             logger.info(
                 "Couldn't parse {} with format {}".format(timestamp, dt_format))
         else:
+            should_convert = dt_format_to_convert[dt_format]
             break
     if not dt:
         logger.info("Couldn't format {} at all; returning it.".format(timestamp))
         return timestamp
-    if dt_format_to_convert[timestamp]:
+    if should_convert:
         # subtract UTC offset from PST
         dt -= timedelta(hours=8)
         return dt.strftime('%b %d, %Y %I:%M:%S %p')
