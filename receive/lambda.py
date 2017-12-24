@@ -4,7 +4,6 @@ import os
 import logging
 import sys
 import email
-from datetime import datetime, timedelta
 from collections import namedtuple
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -65,33 +64,6 @@ def _get_message_id(record):
     return record['ses']['mail']['messageId']
 
 
-def _to_local_format(utc_timestamp):
-    """Returns a readable PST-local time string.
-
-    :param utc_timestamp: UTC formatted time string.
-    """
-    dt_formats = [
-        '%b %d, %Y %I:%M:%S %p',
-        '%a, %d %b %Y %H:%M:%S %z',
-        '%a, %d %b %Y %H:%M:%S',
-    ]
-    dt = None
-    for dt_format in dt_formats:
-        try:
-            dt = datetime.strptime(utc_timestamp, dt_format)
-        except Exception:
-            logger.info(
-                "Couldn't parse {} with format {}".format(utc_timestamp, dt_format))
-        else:
-            break
-    if not dt:
-        logger.info("Couldn't format {} at all; returning it.".format(utc_timestamp))
-        return utc_timestamp
-    # subtract UTC offset from PST
-    dt -= timedelta(hours=8)
-    return dt.strftime('%b %d, %Y %I:%M:%S %p')
-
-
 def _get_email_bytes(record):
     """Downloads the email from S3 given metadata. Returns raw bytes.
 
@@ -130,7 +102,7 @@ def _get_csv_rows(record):
         except Exception as e:
             logger.info("Couldn't get price: {}".format(e))
         else:
-            return CSVRow(message['From'], _to_local_format(message['Date']), message['Subject'], price)
+            return CSVRow(message['From'], message['Date'], message['Subject'], price)
     raise Exception('No price found for message_id {}'.format(_get_message_id(record)))
 
 
@@ -177,7 +149,7 @@ def _notify_update(csv_rows, period_spend):
     def get_message_line(csv_row):
         return ', '.join([
             csv_row.who,
-            _to_local_format(csv_row.when),
+            csv_row.when,
             csv_row.what,
             '${:.2f}'.format(csv_row.price),
         ])
