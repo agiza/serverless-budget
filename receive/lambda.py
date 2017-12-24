@@ -65,31 +65,33 @@ def _get_message_id(record):
     return record['ses']['mail']['messageId']
 
 
-def _to_local_format(utc_timestamp):
+def _to_local_format(timestamp):
     """Returns a readable PST-local time string.
 
-    :param utc_timestamp: UTC formatted time string.
+    :param timestamp: time string; when it's UTC, we perform a conversion to PST
     """
-    dt_formats = [
-        '%b %d, %Y %I:%M:%S %p',
-        '%a, %d %b %Y %H:%M:%S %z',
-        '%a, %d %b %Y %H:%M:%S',
-    ]
+    dt_format_to_convert = {
+        '%b %d, %Y %I:%M:%S %p': False,
+        '%a, %d %b %Y %H:%M:%S %z': True,
+        '%a, %d %b %Y %H:%M:%S': True,
+    }
     dt = None
-    for dt_format in dt_formats:
+    for dt_format in dt_format_to_convert:
         try:
-            dt = datetime.strptime(utc_timestamp, dt_format)
+            dt = datetime.strptime(timestamp, dt_format)
         except Exception:
             logger.info(
-                "Couldn't parse {} with format {}".format(utc_timestamp, dt_format))
+                "Couldn't parse {} with format {}".format(timestamp, dt_format))
         else:
             break
     if not dt:
-        logger.info("Couldn't format {} at all; returning it.".format(utc_timestamp))
-        return utc_timestamp
-    # subtract UTC offset from PST
-    dt -= timedelta(hours=8)
-    return dt.strftime('%b %d, %Y %I:%M:%S %p')
+        logger.info("Couldn't format {} at all; returning it.".format(timestamp))
+        return timestamp
+    if dt_format_to_convert[timestamp]:
+        # subtract UTC offset from PST
+        dt -= timedelta(hours=8)
+        return dt.strftime('%b %d, %Y %I:%M:%S %p')
+    return timestamp
 
 
 def _get_email_bytes(record):
