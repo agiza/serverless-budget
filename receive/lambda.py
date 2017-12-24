@@ -10,8 +10,8 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 
 CSVRow = namedtuple('CSVRow', ['who', 'when', 'what', 'price'])
-LOCAL_CSV_PATH   = '/tmp/{}'.format(os.getenv('csv_key'))
-ALLOWED_SENDERS  = os.getenv('allowed_senders').split(',')
+LOCAL_CSV_PATH = '/tmp/{}'.format(os.getenv('csv_key'))
+ALLOWED_SENDERS = os.getenv('allowed_senders').split(',')
 MAX_PERIOD_SPEND = float(os.getenv('max_period_spend'))
 
 
@@ -20,7 +20,13 @@ def get_logger():
     for handler in logger.handlers:
         logger.removeHandler(handler)
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logging.Formatter('[%(levelname)s] %(threadName)s %(module)s:%(lineno)s %(message)s'))
+    fmt_str = ' '.join([
+        '[%(levelname)s]',
+        '%(threadName)s',
+        '%(module)s:%(lineno)s',
+        '%(message)s',
+    ])
+    handler.setFormatter(logging.Formatter(fmt_str))
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     return logger
@@ -28,17 +34,17 @@ def get_logger():
 
 logger = get_logger()
 sns = boto3.client('sns')
-s3  = boto3.client('s3')
+s3 = boto3.client('s3')
 thread_pool = ThreadPool(5)
 
 
 def _is_clean(record):
-    """Returns True if and only if the email has passed certain spam filter checks, and
-    if it's from an allowed sender, and False otherwise.
+    """Returns True if and only if the email has passed certain spam filter
+    checks, and if it's from an allowed sender, and False otherwise.
 
-    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
+    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html  # noqa
     """
-    receipt_dict  = record['ses']['receipt']
+    receipt_dict = record['ses']['receipt']
     receipt_keys_to_check = {
         '{}Verdict'.format(key_prefix)
         for key_prefix in {'spf', 'virus', 'spam'}
@@ -54,7 +60,7 @@ def _is_clean(record):
 def _get_message_id(record):
     """Pulls out the S3 key of the email corresponding to this record
 
-    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html
+    :param record: nested dictionary; see http://docs.aws.amazon.com/ses/latest/DeveloperGuide/receiving-email-notifications-contents.html  # noqa
     """
     return record['ses']['mail']['messageId']
 
@@ -72,8 +78,9 @@ def _to_local_format(utc_timestamp):
     for dt_format in dt_formats:
         try:
             dt = datetime.strptime(utc_timestamp, dt_format)
-        except Exception as e:
-            logger.info("Couldn't parse {} with format {}".format(utc_timestamp, dt_format))
+        except Exception:
+            logger.info(
+                "Couldn't parse {} with format {}".format(utc_timestamp, dt_format))
         else:
             break
     if not dt:
