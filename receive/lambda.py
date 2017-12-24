@@ -4,7 +4,7 @@ import os
 import logging
 import sys
 import email
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from collections import namedtuple
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -66,11 +66,12 @@ def _get_message_id(record):
 
 
 def _to_local_format(utc_timestamp):
-    """Returns a readable local time string.
+    """Returns a readable PST-local time string.
 
     :param utc_timestamp: UTC formatted time string.
     """
     dt_formats = [
+        '%b %d, %Y %I:%M:%S %p',
         '%a, %d %b %Y %H:%M:%S %z',
         '%a, %d %b %Y %H:%M:%S',
     ]
@@ -86,8 +87,8 @@ def _to_local_format(utc_timestamp):
     if not dt:
         logger.info("Couldn't format {} at all; returning it.".format(utc_timestamp))
         return utc_timestamp
-    dt = dt.replace(tzinfo=timezone.utc)
-    dt = dt.astimezone(tz=None)
+    # subtract UTC offset from PST
+    dt -= timedelta(hours=8)
     return dt.strftime('%b %d, %Y %I:%M:%S %p')
 
 
